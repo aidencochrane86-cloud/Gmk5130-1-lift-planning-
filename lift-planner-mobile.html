@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lift Planner – Mobile Safe</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: Arial, sans-serif; background:#f4f6f8; padding:20px; }
+.card { background:#fff; padding:16px; margin-bottom:16px; border-radius:8px; }
+input { width:100%; padding:6px; margin-bottom:8px; }
+.config { font-family:monospace; background:#eef2ff; padding:6px; }
+.danger { color:red; font-weight:bold; }
+</style>
+</head>
+<body>
+
+<div class="card">
+<h2>Inputs</h2>
+<input id="load" type="number" value="8">
+<input id="radius" type="number" value="10">
+<input id="obsRadius" type="number" value="1">
+<input id="obsHeight" type="number" value="1">
+<input id="margin" type="number" value="1">
+</div>
+
+<div class="card">
+<h2>Result</h2>
+<div id="result">Loading data…</div>
+</div>
+
+<script>
+let DATA = [];
+fetch("loadchart.json")
+  .then(r => r.json())
+  .then(d => { DATA = d; calculate(); })
+  .catch(() => {
+    document.getElementById("result").innerHTML =
+      "<p class='danger'>DATA NOT LOADED</p>";
+  });
+
+const BOOM_FOOT_HEIGHT = 2.0;
+
+function calculate() {
+  if (!DATA.length) return;
+  const load = +loadInput.value;
+  const radius = +radiusInput.value;
+  const obsRadius = +obsRadiusInput.value;
+  const obsHeight = +obsHeightInput.value;
+  const margin = +marginInput.value;
+
+  const requiredHeight =
+    (obsHeight * radius / obsRadius) + margin;
+
+  let candidates = DATA.filter(r =>
+    r.radius >= radius &&
+    r.capacity >= load &&
+    (BOOM_FOOT_HEIGHT + Math.sqrt(r.boom*r.boom - radius*radius)) >= requiredHeight
+  ).map(r => ({
+    ...r,
+    tipHeight: BOOM_FOOT_HEIGHT + Math.sqrt(r.boom*r.boom - radius*radius),
+    util: (load / r.capacity) * 100
+  })).sort((a,b)=>a.boom-b.boom);
+
+  if (!candidates.length) {
+    result.innerHTML = "<p class='danger'>NO VALID CONFIGURATION</p>";
+    return;
+  }
+
+  const r = candidates[0];
+  result.innerHTML = `
+    <div class="config">${r.config}</div>
+    <p>Boom: ${r.boom} m</p>
+    <p>Capacity: ${r.capacity} t</p>
+    <p>Utilisation: ${r.util.toFixed(1)}%</p>
+    <p>Tip height: ${r.tipHeight.toFixed(1)} m</p>
+  `;
+}
+
+const loadInput = document.getElementById("load");
+const radiusInput = document.getElementById("radius");
+const obsRadiusInput = document.getElementById("obsRadius");
+const obsHeightInput = document.getElementById("obsHeight");
+const marginInput = document.getElementById("margin");
+const result = document.getElementById("result");
+
+document.querySelectorAll("input").forEach(i =>
+  i.addEventListener("input", calculate)
+);
+</script>
+</body>
+</html>
