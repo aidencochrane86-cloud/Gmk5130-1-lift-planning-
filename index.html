@@ -22,10 +22,13 @@ label {
   margin-top:10px;
   font-weight:bold;
 }
-input {
+input[type="number"] {
   width:100%;
   padding:6px;
   margin-top:4px;
+}
+.toggle {
+  margin-top:12px;
 }
 .config {
   font-family: monospace;
@@ -59,6 +62,13 @@ hr { margin:16px 0; }
 
 <label>Clearance Margin (m)</label>
 <input id="margin" type="number" value="1">
+
+<div class="toggle">
+  <label>
+    <input type="checkbox" id="showAlt">
+    Show alternative configuration
+  </label>
+</div>
 </div>
 
 <div class="card">
@@ -68,7 +78,7 @@ hr { margin:16px 0; }
 
 <script>
 /* ================= CONFIG ================= */
-const BOOM_FOOT_HEIGHT = 2.0;   // fixed, realistic
+const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [];
 
 /* ================= LOAD DATA ================= */
@@ -92,6 +102,7 @@ function calculate() {
   const obsRadius = +obsRadiusInput.value;
   const obsHeight = +obsHeightInput.value;
   const margin = +marginInput.value;
+  const showAlt = showAltInput.checked;
 
   const requiredHeight =
     (obsHeight * radius / obsRadius) + margin;
@@ -155,10 +166,10 @@ function calculate() {
     <p>Tip height: ${best.tipHeight.toFixed(1)} m</p>
   `;
 
-  if (second) {
+  if (showAlt && second) {
     html += `
       <hr>
-      <h3>Second Best Configuration</h3>
+      <h3>Alternative Configuration</h3>
       <div class="config">${second.config}</div>
       <p>Boom: ${second.boom} m</p>
       <p>Capacity: ${second.capacity} t</p>
@@ -180,6 +191,7 @@ const radiusInput = document.getElementById("radius");
 const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
+const showAltInput = document.getElementById("showAlt");
 const result = document.getElementById("result");
 
 document.querySelectorAll("input")
