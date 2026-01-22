@@ -22,13 +22,15 @@ label {
   margin-top:10px;
   font-weight:bold;
 }
-input[type="number"] {
+input[type="number"], select {
   width:100%;
   padding:6px;
   margin-top:4px;
 }
-.toggle {
-  margin-top:12px;
+input[type="checkbox"] {
+  width:auto;
+  margin-right:8px;
+  transform: scale(1.2);
 }
 .config {
   font-family: monospace;
@@ -40,18 +42,33 @@ input[type="number"] {
 .warn { color:orange; font-weight:bold; }
 .danger { color:red; font-weight:bold; }
 hr { margin:16px 0; }
-  input[type="checkbox"] {
-  width: auto;
-  margin-right: 8px;
-  transform: scale(1.2);
-  }
+.meta {
+  font-size:0.9em;
+  color:#333;
+  background:#eef6ff;
+  padding:8px;
+  border-radius:6px;
+}
 </style>
 </head>
 
 <body>
 
+<div class="card meta">
+  <strong>Crane:</strong> GMK5130-1<br>
+  <strong>Slew:</strong> 360°
+  <div id="metaBallast"><strong>Ballast:</strong> 23.5 t</div>
+</div>
+
 <div class="card">
 <h2>Inputs</h2>
+
+<label>Ballast configuration</label>
+<select id="ballast">
+  <option value="23_5t" selected>23.5 t</option>
+  <option value="40_1t">40.1 t</option>
+  <option value="6t">6 t</option>
+</select>
 
 <label>Load (t)</label>
 <input id="load" type="number" value="8">
@@ -68,12 +85,10 @@ hr { margin:16px 0; }
 <label>Clearance Margin (m)</label>
 <input id="margin" type="number" value="1">
 
-<div class="toggle">
-  <label>
-    <input type="checkbox" id="showAlt">
-    Show alternative configuration
-  </label>
-</div>
+<label>
+  <input type="checkbox" id="showAlt">
+  Show alternative configuration
+</label>
 </div>
 
 <div class="card">
@@ -85,18 +100,26 @@ hr { margin:16px 0; }
 /* ================= CONFIG ================= */
 const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [];
+let currentBallast = "23_5t";
 
 /* ================= LOAD DATA ================= */
-fetch("loadchart.json")
-  .then(r => r.json())
-  .then(d => {
-    DATA = d;
-    calculate();
-  })
-  .catch(() => {
-    document.getElementById("result").innerHTML =
-      "<p class='danger'>DATA NOT LOADED</p>";
-  });
+function loadData(ballastKey) {
+  DATA = [];
+  result.innerHTML = "Loading data…";
+
+  fetch(`loadchart_${ballastKey}.json`)
+    .then(r => r.json())
+    .then(d => {
+      DATA = d;
+      document.getElementById("metaBallast").innerHTML =
+        "<strong>Ballast:</strong> " + ballastKey.replace("_", ".").replace("t"," t");
+      calculate();
+    })
+    .catch(() => {
+      result.innerHTML =
+        "<p class='danger'>LOAD CHART NOT FOUND FOR SELECTED BALLAST</p>";
+    });
+}
 
 /* ================= CORE LOGIC ================= */
 function calculate() {
@@ -191,6 +214,7 @@ function calculate() {
 }
 
 /* ================= WIRING ================= */
+const ballastInput = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
 const radiusInput = document.getElementById("radius");
 const obsRadiusInput = document.getElementById("obsRadius");
@@ -199,9 +223,18 @@ const marginInput = document.getElementById("margin");
 const showAltInput = document.getElementById("showAlt");
 const result = document.getElementById("result");
 
+ballastInput.addEventListener("change", e => {
+  currentBallast = e.target.value;
+  loadData(currentBallast);
+});
+
 document.querySelectorAll("input")
   .forEach(i => i.addEventListener("input", calculate));
+
+/* ================= INIT ================= */
+loadData(currentBallast);
 </script>
 
 </body>
 </html>
+
