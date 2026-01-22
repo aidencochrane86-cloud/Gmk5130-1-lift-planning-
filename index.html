@@ -30,6 +30,7 @@ input[type="number"], select {
 input:disabled, select:disabled {
   background:#eee;
   color:#777;
+  pointer-events:none; /* 🔒 hard lock for mobile */
 }
 .meta {
   font-size:0.9em;
@@ -142,7 +143,7 @@ function loadData(ballastKey) {
     });
 }
 
-/* ---------- Enable / disable inputs by mode ---------- */
+/* ---------- Mode UI enforcement ---------- */
 function applyModeUI(mode) {
   const boomMode = mode === "boom";
 
@@ -262,22 +263,26 @@ function calculate() {
   `;
 }
 
-/* ---------- Wiring ---------- */
+/* ---------- Wiring (EXPLICIT ONLY) ---------- */
 ballast.addEventListener("change", e => loadData(e.target.value));
+
 boomRequest.addEventListener("input", () => {
   updateBoomOptions();
   calculate();
 });
 boomSelect.addEventListener("change", calculate);
 
+loadInput.addEventListener("input", calculate);
+radiusInput.addEventListener("input", calculate);
+obsRadiusInput.addEventListener("input", calculate);
+obsHeightInput.addEventListener("input", calculate);
+marginInput.addEventListener("input", calculate);
+
 document.querySelectorAll('input[name="mode"]')
   .forEach(r => r.addEventListener("change", e => {
     applyModeUI(e.target.value);
     calculate();
   }));
-
-document.querySelectorAll("input")
-  .forEach(i => i.addEventListener("input", calculate));
 
 /* ---------- Init ---------- */
 applyModeUI("optimised");
