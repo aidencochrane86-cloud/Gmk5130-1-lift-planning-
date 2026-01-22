@@ -32,16 +32,6 @@ input[type="checkbox"] {
   margin-right:8px;
   transform: scale(1.2);
 }
-.config {
-  font-family: monospace;
-  background:#eef2ff;
-  padding:6px;
-  border-radius:4px;
-}
-.ok { color:green; font-weight:bold; }
-.warn { color:orange; font-weight:bold; }
-.danger { color:red; font-weight:bold; }
-hr { margin:16px 0; }
 .meta {
   font-size:0.9em;
   background:#eef6ff;
@@ -59,6 +49,19 @@ hr { margin:16px 0; }
 }
 .badge.optimised { background:#0066cc; }
 .badge.boom { background:#555; }
+table {
+  width:100%;
+  border-collapse:collapse;
+  margin-top:12px;
+}
+th, td {
+  border:1px solid #ccc;
+  padding:6px;
+  text-align:center;
+}
+th {
+  background:#f0f0f0;
+}
 </style>
 </head>
 
@@ -76,8 +79,8 @@ hr { margin:16px 0; }
 
 <label>Ballast configuration</label>
 <select id="ballast">
-  <option value="23_5t">23.5 t</option>
   <option value="40_1t">40.1 t</option>
+  <option value="23_5t">23.5 t</option>
   <option value="6t">6 t</option>
 </select>
 
@@ -101,28 +104,19 @@ hr { margin:16px 0; }
 
 <label>Clearance Margin (m)</label>
 <input id="margin" type="number">
-
-<label>
-  <input type="checkbox" id="showAlt">
-  Show alternative configuration
-</label>
 </div>
 
 <div class="card">
 <h2>Result</h2>
-<div id="result">Select inputs to calculate.</div>
+<div id="result">Select inputs.</div>
 </div>
 
 <script>
-/* ================= CONFIG ================= */
 const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [];
 
-/* ================= LOAD DATA ================= */
+/* ---------- Load chart ---------- */
 function loadData(ballastKey) {
-  DATA = [];
-  result.innerHTML = "Loading data…";
-
   fetch(`loadchart_${ballastKey}.json?v=2024-03-01`)
     .then(r => r.json())
     .then(d => {
@@ -131,56 +125,78 @@ function loadData(ballastKey) {
         "<strong>Ballast:</strong> " + d.meta.ballast;
       updateBoomOptions();
       calculate();
-    })
-    .catch(() => {
-      result.innerHTML =
-        "<p class='danger'>LOAD CHART NOT FOUND</p>";
     });
 }
 
-/* ================= BOOM OPTIONS ================= */
+/* ---------- Boom dropdown ---------- */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!DATA.length) return;
 
   const req = +boomRequest.value;
-
-  const booms = [...new Set(DATA.map(r => r.boom))]
-    .sort((a, b) => a - b);
+  const booms = [...new Set(DATA.map(r => r.boom))].sort((a,b)=>a-b);
 
   booms.forEach(b => {
     if (!req || Math.abs(b - req) <= 3) {
-      const opt = document.createElement("option");
-      opt.value = b;
-      opt.textContent = `${b} m`;
-      boomSelect.appendChild(opt);
+      const o = document.createElement("option");
+      o.value = b;
+      o.textContent = `${b} m`;
+      boomSelect.appendChild(o);
     }
   });
 }
 
-/* ================= CORE LOGIC ================= */
+/* ---------- Main logic ---------- */
 function calculate() {
   if (!DATA.length) return;
 
+  const selectedBoom = +boomSelect.value;
+  const boomLocked = !!selectedBoom;
+
+  // Mode UI
+  if (boomLocked) {
+    modeBadge.textContent = "Mode: Boom-specific";
+    modeBadge.className = "badge boom";
+  } else {
+    modeBadge.textContent = "Mode: Optimised";
+    modeBadge.className = "badge optimised";
+  }
+
+  // -------- BOOM-SPECIFIC MODE --------
+  if (boomLocked) {
+    const rows = DATA
+      .filter(r => r.boom === selectedBoom)
+      .sort((a,b)=>a.radius-b.radius);
+
+    let html = `
+      <h3>Load chart for boom ${selectedBoom} m</h3>
+      <table>
+        <tr>
+          <th>Radius (m)</th>
+          <th>Capacity (t)</th>
+        </tr>
+    `;
+
+    rows.forEach(r => {
+      html += `
+        <tr>
+          <td>${r.radius}</td>
+          <td>${r.capacity}</td>
+        </tr>
+      `;
+    });
+
+    html += "</table>";
+    result.innerHTML = html;
+    return;
+  }
+
+  // -------- OPTIMISED MODE (unchanged) --------
   const load = +loadInput.value;
   const radius = +radiusInput.value;
   const obsRadius = +obsRadiusInput.value;
   const obsHeight = +obsHeightInput.value;
-  const margin = +marginInput.value;
-  const selectedBoom = +boomSelect.value;
-  const boomLocked = !!selectedBoom;
-
-  // Mode badge + toggle control
-  if (boomLocked) {
-    modeBadge.textContent = "Mode: Boom-specific";
-    modeBadge.className = "badge boom";
-    showAltInput.checked = false;
-    showAltInput.disabled = true;
-  } else {
-    modeBadge.textContent = "Mode: Optimised";
-    modeBadge.className = "badge optimised";
-    showAltInput.disabled = false;
-  }
+  const margin = +marginInput.value || 0;
 
   if (!load || !radius || !obsRadius || !obsHeight) {
     result.innerHTML = "Enter all required inputs.";
@@ -188,69 +204,44 @@ function calculate() {
   }
 
   const requiredHeight =
-    (obsHeight * radius / obsRadius) + (margin || 0);
+    (obsHeight * radius / obsRadius) + margin;
 
   let candidates = [];
 
-  DATA.forEach(row => {
-    if (boomLocked && row.boom !== selectedBoom) return;
-    if (row.radius < radius) return;
-    if (row.capacity < load) return;
+  DATA.forEach(r => {
+    if (r.radius < radius) return;
+    if (r.capacity < load) return;
 
     const tipHeight =
-      BOOM_FOOT_HEIGHT + Math.sqrt(row.boom*row.boom - radius*radius);
+      BOOM_FOOT_HEIGHT + Math.sqrt(r.boom*r.boom - radius*radius);
 
     if (tipHeight < requiredHeight) return;
 
     candidates.push({
-      ...row,
-      tipHeight,
-      util: (load / row.capacity) * 100
+      ...r,
+      util: (load / r.capacity) * 100
     });
   });
 
   if (!candidates.length) {
-    result.innerHTML = `
-      <p class="danger">NO VALID CONFIGURATION</p>
-      <p>Required hook height: ${requiredHeight.toFixed(1)} m</p>
-    `;
+    result.innerHTML = "<b>No valid configuration</b>";
     return;
   }
 
-  candidates.sort((a, b) => {
-    if (a.util !== b.util) return a.util - b.util;
-    return a.boom - b.boom;
-  });
-
+  candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
 
-  function utilClass(u) {
-    if (u >= 90) return "danger";
-    if (u >= 85) return "warn";
-    return "ok";
-  }
-
-  let html = boomLocked
-    ? `<h3>Selected Boom Configuration</h3>`
-    : `<h3>Best (Safest) Configuration</h3>`;
-
-  html += `
-    <p><strong>Boom length:</strong> ${best.boom} m</p>
-    <p><strong>Radius:</strong> ${radius} m</p>
-    <p><strong>Chart capacity at radius:</strong> ${best.capacity} t</p>
-    <p><strong>Utilisation:</strong>
-      <span class="${utilClass(best.util)}">
-        ${best.util.toFixed(1)}%
-      </span>
-    </p>
-    <p><strong>Tip height:</strong> ${best.tipHeight.toFixed(1)} m</p>
+  result.innerHTML = `
+    <h3>Best (Safest) Configuration</h3>
+    <p><b>Boom:</b> ${best.boom} m</p>
+    <p><b>Radius:</b> ${radius} m</p>
+    <p><b>Capacity:</b> ${best.capacity} t</p>
+    <p><b>Utilisation:</b> ${best.util.toFixed(1)}%</p>
   `;
-
-  result.innerHTML = html;
 }
 
-/* ================= WIRING ================= */
-const ballastInput = document.getElementById("ballast");
+/* ---------- Wiring ---------- */
+const ballast = document.getElementById("ballast");
 const boomRequest = document.getElementById("boomRequest");
 const boomSelect = document.getElementById("boomSelect");
 const loadInput = document.getElementById("load");
@@ -258,21 +249,21 @@ const radiusInput = document.getElementById("radius");
 const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
-const showAltInput = document.getElementById("showAlt");
 const result = document.getElementById("result");
 const modeBadge = document.getElementById("modeBadge");
 
-ballastInput.addEventListener("change", e => loadData(e.target.value));
+ballast.addEventListener("change", e => loadData(e.target.value));
 boomRequest.addEventListener("input", () => {
   updateBoomOptions();
   calculate();
 });
 boomSelect.addEventListener("change", calculate);
-document.querySelectorAll("input")
-  .forEach(i => i.addEventListener("input", calculate));
+document.querySelectorAll("input").forEach(i =>
+  i.addEventListener("input", calculate)
+);
 
-/* ================= INIT ================= */
-loadData(ballastInput.value);
+/* ---------- Init ---------- */
+loadData(ballast.value);
 </script>
 
 </body>
