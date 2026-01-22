@@ -27,6 +27,10 @@ input[type="number"], select {
   padding:6px;
   margin-top:4px;
 }
+input:disabled, select:disabled {
+  background:#eee;
+  color:#777;
+}
 .meta {
   font-size:0.9em;
   background:#eef6ff;
@@ -44,9 +48,6 @@ input[type="number"], select {
 .badge.optimised { background:#0066cc; }
 .badge.boom { background:#555; }
 
-.mode-toggle {
-  margin:10px 0;
-}
 .mode-toggle label {
   font-weight:normal;
   margin-right:12px;
@@ -62,9 +63,7 @@ th, td {
   padding:6px;
   text-align:center;
 }
-th {
-  background:#f0f0f0;
-}
+th { background:#f0f0f0; }
 </style>
 </head>
 
@@ -92,7 +91,7 @@ th {
   </label>
 </div>
 
-<label>Ballast configuration</label>
+<label>Ballast</label>
 <select id="ballast">
   <option value="23_5t">23.5 t</option>
   <option value="40_1t">40.1 t</option>
@@ -143,12 +142,33 @@ function loadData(ballastKey) {
     });
 }
 
+/* ---------- Enable / disable inputs by mode ---------- */
+function applyModeUI(mode) {
+  const boomMode = mode === "boom";
+
+  boomRequest.disabled = !boomMode;
+  boomSelect.disabled = !boomMode;
+
+  loadInput.disabled = boomMode;
+  radiusInput.disabled = boomMode;
+  obsRadiusInput.disabled = boomMode;
+  obsHeightInput.disabled = boomMode;
+  marginInput.disabled = boomMode;
+
+  modeBadge.textContent = boomMode
+    ? "Mode: Boom-specific"
+    : "Mode: Optimised";
+
+  modeBadge.className =
+    "badge " + (boomMode ? "boom" : "optimised");
+}
+
 /* ---------- Boom dropdown ---------- */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
-  const req = boomRequest.value;
-  if (!DATA.length || !req) return;
+  if (!boomRequest.value || !DATA.length) return;
 
+  const req = +boomRequest.value;
   const booms = [...new Set(DATA.map(r => r.boom))].sort((a,b)=>a-b);
 
   booms.forEach(b => {
@@ -167,43 +187,25 @@ function calculate() {
 
   const mode = document.querySelector('input[name="mode"]:checked').value;
 
-  // Mode badge
+  /* ===== BOOM-SPECIFIC MODE ===== */
   if (mode === "boom") {
-    modeBadge.textContent = "Mode: Boom-specific";
-    modeBadge.className = "badge boom";
-  } else {
-    modeBadge.textContent = "Mode: Optimised";
-    modeBadge.className = "badge optimised";
-  }
-
-  /* ========== BOOM MODE ========== */
-  if (mode === "boom") {
-    const selectedBoom = boomSelect.value;
-    if (!selectedBoom) {
+    if (!boomSelect.value) {
       result.innerHTML = "Select a boom length.";
       return;
     }
 
     const rows = DATA
-      .filter(r => String(r.boom) === String(selectedBoom))
+      .filter(r => String(r.boom) === boomSelect.value)
       .sort((a,b)=>a.radius-b.radius);
 
     let html = `
-      <h3>Load chart for boom ${selectedBoom} m</h3>
+      <h3>Load chart for boom ${boomSelect.value} m</h3>
       <table>
-        <tr>
-          <th>Radius (m)</th>
-          <th>Capacity (t)</th>
-        </tr>
+        <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
     `;
 
     rows.forEach(r => {
-      html += `
-        <tr>
-          <td>${r.radius}</td>
-          <td>${r.capacity}</td>
-        </tr>
-      `;
+      html += `<tr><td>${r.radius}</td><td>${r.capacity}</td></tr>`;
     });
 
     html += "</table>";
@@ -211,7 +213,7 @@ function calculate() {
     return;
   }
 
-  /* ========== OPTIMISED MODE ========== */
+  /* ===== OPTIMISED MODE ===== */
   const load = +loadInput.value;
   const radius = +radiusInput.value;
   const obsRadius = +obsRadiusInput.value;
@@ -267,10 +269,18 @@ boomRequest.addEventListener("input", () => {
   calculate();
 });
 boomSelect.addEventListener("change", calculate);
-document.querySelectorAll("input, select")
-  .forEach(el => el.addEventListener("change", calculate));
+
+document.querySelectorAll('input[name="mode"]')
+  .forEach(r => r.addEventListener("change", e => {
+    applyModeUI(e.target.value);
+    calculate();
+  }));
+
+document.querySelectorAll("input")
+  .forEach(i => i.addEventListener("input", calculate));
 
 /* ---------- Init ---------- */
+applyModeUI("optimised");
 loadData(ballast.value);
 </script>
 
