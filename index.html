@@ -44,7 +44,6 @@ input[type="checkbox"] {
 hr { margin:16px 0; }
 .meta {
   font-size:0.9em;
-  color:#333;
   background:#eef6ff;
   padding:8px;
   border-radius:6px;
@@ -65,28 +64,31 @@ hr { margin:16px 0; }
 
 <label>Ballast configuration</label>
 <select id="ballast">
-  <option value="6t">6 t</option>
   <option value="23_5t" selected>23.5 t</option>
   <option value="40_1t">40.1 t</option>
+  <option value="6t">6 t</option>
 </select>
 
-<label>Load (t)</label>
-<input id="load" type="number" value="">
+<label>Requested boom length (m)</label>
+<input id="boomRequest" type="number" value="22">
 
-<label>Rigging (t)</label>
-<input id="load" type="number" value="">
+<label>Select available boom length</label>
+<select id="boomSelect"></select>
+
+<label>Load (t)</label>
+<input id="load" type="number" value="8">
 
 <label>Working Radius (m)</label>
-<input id="radius" type="number" value="">
+<input id="radius" type="number" value="10">
 
 <label>Obstruction Radius (m)</label>
-<input id="obsRadius" type="number" value="">
+<input id="obsRadius" type="number" value="1">
 
 <label>Obstruction Height (m)</label>
-<input id="obsHeight" type="number" value="">
+<input id="obsHeight" type="number" value="1">
 
 <label>Clearance Margin (m)</label>
-<input id="margin" type="number" value="">
+<input id="margin" type="number" value="1">
 
 <label>
   <input type="checkbox" id="showAlt">
@@ -109,25 +111,51 @@ function loadData(ballastKey) {
   DATA = [];
   result.innerHTML = "Loading data…";
 
-  fetch(`loadchart_${ballastKey}.json`)
+  fetch(`loadchart_${ballastKey}.json?v=2024-03-01`)
     .then(r => r.json())
     .then(d => {
-      if (!Array.isArray(d.charts)) {
-        throw new Error("Invalid chart structure");
-      }
-
       DATA = d.charts;
-
       document.getElementById("metaBallast").innerHTML =
         "<strong>Ballast:</strong> " + d.meta.ballast;
-
+      updateBoomOptions();
       calculate();
     })
-    .catch(err => {
-      console.error(err);
+    .catch(() => {
       result.innerHTML =
-        "<p class='danger'>LOAD CHART NOT FOUND OR INVALID FOR SELECTED BALLAST</p>";
+        "<p class='danger'>LOAD CHART NOT FOUND</p>";
     });
+}
+
+/* ================= BOOM OPTIONS ================= */
+function updateBoomOptions() {
+  boomSelect.innerHTML = "";
+  if (!DATA.length) return;
+
+  const req = +boomRequest.value;
+
+  const booms = [...new Set(DATA.map(r => r.boom))]
+    .sort((a, b) => a - b);
+
+  let added = false;
+
+  booms.forEach(b => {
+    if (Math.abs(b - req) <= 3) {
+      const opt = document.createElement("option");
+      opt.value = b;
+      opt.textContent = `${b} m`;
+      boomSelect.appendChild(opt);
+      added = true;
+    }
+  });
+
+  if (!added) {
+    booms.forEach(b => {
+      const opt = document.createElement("option");
+      opt.value = b;
+      opt.textContent = `${b} m`;
+      boomSelect.appendChild(opt);
+    });
+  }
 }
 
 /* ================= CORE LOGIC ================= */
@@ -140,6 +168,7 @@ function calculate() {
   const obsHeight = +obsHeightInput.value;
   const margin = +marginInput.value;
   const showAlt = showAltInput.checked;
+  const selectedBoom = +boomSelect.value;
 
   const requiredHeight =
     (obsHeight * radius / obsRadius) + margin;
@@ -147,6 +176,7 @@ function calculate() {
   let candidates = [];
 
   DATA.forEach(row => {
+    if (selectedBoom && row.boom !== selectedBoom) return;
     if (row.radius < radius) return;
     if (row.capacity < load) return;
 
@@ -170,14 +200,8 @@ function calculate() {
     return;
   }
 
-  /* ===== SORT: BEST = LOWEST UTILISATION ===== */
   candidates.sort((a, b) => {
     if (a.util !== b.util) return a.util - b.util;
-
-    const aHasJib = a.config !== "0,0,0,0,0";
-    const bHasJib = b.config !== "0,0,0,0,0";
-    if (aHasJib !== bHasJib) return aHasJib ? 1 : -1;
-
     return a.boom - b.boom;
   });
 
@@ -224,6 +248,8 @@ function calculate() {
 
 /* ================= WIRING ================= */
 const ballastInput = document.getElementById("ballast");
+const boomRequest = document.getElementById("boomRequest");
+const boomSelect = document.getElementById("boomSelect");
 const loadInput = document.getElementById("load");
 const radiusInput = document.getElementById("radius");
 const obsRadiusInput = document.getElementById("obsRadius");
@@ -232,10 +258,12 @@ const marginInput = document.getElementById("margin");
 const showAltInput = document.getElementById("showAlt");
 const result = document.getElementById("result");
 
-ballastInput.addEventListener("change", e => {
-  loadData(e.target.value);
+ballastInput.addEventListener("change", e => loadData(e.target.value));
+boomRequest.addEventListener("input", () => {
+  updateBoomOptions();
+  calculate();
 });
-
+boomSelect.addEventListener("change", calculate);
 document.querySelectorAll("input")
   .forEach(i => i.addEventListener("input", calculate));
 
