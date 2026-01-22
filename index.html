@@ -30,7 +30,7 @@ input[type="number"], select {
 input:disabled, select:disabled {
   background:#eee;
   color:#777;
-  pointer-events:none; /* 🔒 hard lock for mobile */
+  pointer-events:none;
 }
 .meta {
   font-size:0.9em;
@@ -48,6 +48,15 @@ input:disabled, select:disabled {
 }
 .badge.optimised { background:#0066cc; }
 .badge.boom { background:#555; }
+
+.output-meta {
+  background:#f7f9ff;
+  border:1px solid #ccd5ff;
+  padding:8px;
+  border-radius:6px;
+  margin-bottom:10px;
+  font-size:0.9em;
+}
 
 .mode-toggle label {
   font-weight:normal;
@@ -129,6 +138,7 @@ th { background:#f0f0f0; }
 <script>
 const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [];
+let CURRENT_META = {};
 
 /* ---------- Load chart ---------- */
 function loadData(ballastKey) {
@@ -136,8 +146,11 @@ function loadData(ballastKey) {
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
+      CURRENT_META = d.meta;
+
       metaBallast.innerHTML =
         "<strong>Ballast:</strong> " + d.meta.ballast;
+
       updateBoomOptions();
       calculate();
     });
@@ -199,14 +212,35 @@ function calculate() {
       .filter(r => String(r.boom) === boomSelect.value)
       .sort((a,b)=>a.radius-b.radius);
 
+    if (!rows.length) {
+      result.innerHTML = "No data for selected boom.";
+      return;
+    }
+
+    const config = rows[0].config;
+
     let html = `
-      <h3>Load chart for boom ${boomSelect.value} m</h3>
+      <div class="output-meta">
+        <strong>Ballast:</strong> ${CURRENT_META.ballast}<br>
+        <strong>Boom length:</strong> ${boomSelect.value} m<br>
+        <strong>Boom configuration:</strong> ${config}
+      </div>
+
+      <h3>Load chart – boom ${boomSelect.value} m</h3>
       <table>
-        <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
+        <tr>
+          <th>Radius (m)</th>
+          <th>Capacity (t)</th>
+        </tr>
     `;
 
     rows.forEach(r => {
-      html += `<tr><td>${r.radius}</td><td>${r.capacity}</td></tr>`;
+      html += `
+        <tr>
+          <td>${r.radius}</td>
+          <td>${r.capacity}</td>
+        </tr>
+      `;
     });
 
     html += "</table>";
@@ -263,7 +297,7 @@ function calculate() {
   `;
 }
 
-/* ---------- Wiring (EXPLICIT ONLY) ---------- */
+/* ---------- Wiring ---------- */
 ballast.addEventListener("change", e => loadData(e.target.value));
 
 boomRequest.addEventListener("input", () => {
