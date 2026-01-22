@@ -110,7 +110,7 @@ function loadData(ballastKey) {
   fetch(`loadchart_${ballastKey}.json`)
     .then(r => r.json())
     .then(d => {
-      DATA = d;
+      DATA = d.charts;
       document.getElementById("metaBallast").innerHTML =
         "<strong>Ballast:</strong> " + ballastKey.replace("_", ".").replace("t"," t");
       calculate();
