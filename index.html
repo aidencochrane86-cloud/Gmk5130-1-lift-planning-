@@ -56,8 +56,8 @@ hr { margin:16px 0; }
 
 <div class="card meta">
   <strong>Crane:</strong> GMK5130-1<br>
-  <strong>Slew:</strong> 360°
-  <div id="metaBallast"><strong>Ballast:</strong> 23.5 t</div>
+  <strong>Slew:</strong> 360°<br>
+  <span id="metaBallast"><strong>Ballast:</strong> —</span>
 </div>
 
 <div class="card">
@@ -100,7 +100,6 @@ hr { margin:16px 0; }
 /* ================= CONFIG ================= */
 const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [];
-let currentBallast = "23_5t";
 
 /* ================= LOAD DATA ================= */
 function loadData(ballastKey) {
@@ -110,14 +109,21 @@ function loadData(ballastKey) {
   fetch(`loadchart_${ballastKey}.json`)
     .then(r => r.json())
     .then(d => {
+      if (!Array.isArray(d.charts)) {
+        throw new Error("Invalid chart structure");
+      }
+
       DATA = d.charts;
+
       document.getElementById("metaBallast").innerHTML =
-        "<strong>Ballast:</strong> " + ballastKey.replace("_", ".").replace("t"," t");
+        "<strong>Ballast:</strong> " + d.meta.ballast;
+
       calculate();
     })
-    .catch(() => {
+    .catch(err => {
+      console.error(err);
       result.innerHTML =
-        "<p class='danger'>LOAD CHART NOT FOUND FOR SELECTED BALLAST</p>";
+        "<p class='danger'>LOAD CHART NOT FOUND OR INVALID FOR SELECTED BALLAST</p>";
     });
 }
 
@@ -224,17 +230,15 @@ const showAltInput = document.getElementById("showAlt");
 const result = document.getElementById("result");
 
 ballastInput.addEventListener("change", e => {
-  currentBallast = e.target.value;
-  loadData(currentBallast);
+  loadData(e.target.value);
 });
 
 document.querySelectorAll("input")
   .forEach(i => i.addEventListener("input", calculate));
 
 /* ================= INIT ================= */
-loadData(currentBallast);
+loadData(ballastInput.value);
 </script>
 
 </body>
 </html>
-
