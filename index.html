@@ -27,11 +27,6 @@ input[type="number"], select {
   padding:6px;
   margin-top:4px;
 }
-input[type="checkbox"] {
-  width:auto;
-  margin-right:8px;
-  transform: scale(1.2);
-}
 .meta {
   font-size:0.9em;
   background:#eef6ff;
@@ -42,13 +37,13 @@ input[type="checkbox"] {
   display:inline-block;
   margin-top:6px;
   padding:4px 8px;
-  background:#333;
   color:#fff;
   border-radius:12px;
   font-size:0.8em;
 }
 .badge.optimised { background:#0066cc; }
 .badge.boom { background:#555; }
+
 table {
   width:100%;
   border-collapse:collapse;
@@ -79,8 +74,8 @@ th {
 
 <label>Ballast configuration</label>
 <select id="ballast">
-  <option value="40_1t">40.1 t</option>
   <option value="23_5t">23.5 t</option>
+  <option value="40_1t">40.1 t</option>
   <option value="6t">6 t</option>
 </select>
 
@@ -112,10 +107,11 @@ th {
 </div>
 
 <script>
+/* ================= CONFIG ================= */
 const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [];
 
-/* ---------- Load chart ---------- */
+/* ================= LOAD DATA ================= */
 function loadData(ballastKey) {
   fetch(`loadchart_${ballastKey}.json?v=2024-03-01`)
     .then(r => r.json())
@@ -125,10 +121,13 @@ function loadData(ballastKey) {
         "<strong>Ballast:</strong> " + d.meta.ballast;
       updateBoomOptions();
       calculate();
+    })
+    .catch(() => {
+      result.innerHTML = "<b>Load chart not found</b>";
     });
 }
 
-/* ---------- Boom dropdown ---------- */
+/* ================= BOOM OPTIONS ================= */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!DATA.length) return;
@@ -138,22 +137,22 @@ function updateBoomOptions() {
 
   booms.forEach(b => {
     if (!req || Math.abs(b - req) <= 3) {
-      const o = document.createElement("option");
-      o.value = b;
-      o.textContent = `${b} m`;
-      boomSelect.appendChild(o);
+      const opt = document.createElement("option");
+      opt.value = b;
+      opt.textContent = `${b} m`;
+      boomSelect.appendChild(opt);
     }
   });
 }
 
-/* ---------- Main logic ---------- */
+/* ================= CORE LOGIC ================= */
 function calculate() {
   if (!DATA.length) return;
 
   const selectedBoom = +boomSelect.value;
   const boomLocked = !!selectedBoom;
 
-  // Mode UI
+  /* ----- MODE UI ----- */
   if (boomLocked) {
     modeBadge.textContent = "Mode: Boom-specific";
     modeBadge.className = "badge boom";
@@ -162,7 +161,9 @@ function calculate() {
     modeBadge.className = "badge optimised";
   }
 
-  // -------- BOOM-SPECIFIC MODE --------
+  /* ==========================================================
+     BOOM-SPECIFIC MODE → SHOW FULL LOAD CHART (NO INPUTS)
+     ========================================================== */
   if (boomLocked) {
     const rows = DATA
       .filter(r => r.boom === selectedBoom)
@@ -188,10 +189,12 @@ function calculate() {
 
     html += "</table>";
     result.innerHTML = html;
-    return;
+    return; // 🔒 critical guard
   }
 
-  // -------- OPTIMISED MODE (unchanged) --------
+  /* ==========================================================
+     OPTIMISED MODE → CALCULATOR
+     ========================================================== */
   const load = +loadInput.value;
   const radius = +radiusInput.value;
   const obsRadius = +obsRadiusInput.value;
@@ -240,7 +243,7 @@ function calculate() {
   `;
 }
 
-/* ---------- Wiring ---------- */
+/* ================= WIRING ================= */
 const ballast = document.getElementById("ballast");
 const boomRequest = document.getElementById("boomRequest");
 const boomSelect = document.getElementById("boomSelect");
@@ -258,11 +261,10 @@ boomRequest.addEventListener("input", () => {
   calculate();
 });
 boomSelect.addEventListener("change", calculate);
-document.querySelectorAll("input").forEach(i =>
-  i.addEventListener("input", calculate)
-);
+document.querySelectorAll("input")
+  .forEach(i => i.addEventListener("input", calculate));
 
-/* ---------- Init ---------- */
+/* ================= INIT ================= */
 loadData(ballast.value);
 </script>
 
