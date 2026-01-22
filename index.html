@@ -91,8 +91,8 @@ th { background:#f0f0f0; }
 
 <div class="mode-toggle">
   <strong>Mode:</strong><br>
-  <label><input type="radio" name="mode" value="optimised" checked> Optimised</label>
-  <label><input type="radio" name="mode" value="boom"> Boom-specific</label>
+  <label><input type="radio" name="mode" value="optimised" checked> Optimised (best configuration)</label>
+  <label><input type="radio" name="mode" value="boom"> Boom-specific (load chart)</label>
 </div>
 
 <label>Ballast</label>
@@ -122,6 +122,11 @@ th { background:#f0f0f0; }
 
 <label>Clearance Margin (m)</label>
 <input id="margin" type="number">
+
+<label id="altToggleLabel">
+  <input type="checkbox" id="showAlt">
+  Show alternative configuration
+</label>
 </div>
 
 <div class="card">
@@ -130,38 +135,36 @@ th { background:#f0f0f0; }
 </div>
 
 <script>
-/* ================= DOM BINDINGS ================= */
-const metaBallast   = document.getElementById("metaBallast");
-const modeBadge     = document.getElementById("modeBadge");
-const ballast       = document.getElementById("ballast");
-const boomRequest   = document.getElementById("boomRequest");
-const boomSelect    = document.getElementById("boomSelect");
-const loadInput     = document.getElementById("load");
-const radiusInput   = document.getElementById("radius");
-const obsRadiusInput= document.getElementById("obsRadius");
-const obsHeightInput= document.getElementById("obsHeight");
-const marginInput   = document.getElementById("margin");
-const result        = document.getElementById("result");
+/* ================= DOM ================= */
+const metaBallast = document.getElementById("metaBallast");
+const modeBadge   = document.getElementById("modeBadge");
+const ballast     = document.getElementById("ballast");
+const boomRequest = document.getElementById("boomRequest");
+const boomSelect  = document.getElementById("boomSelect");
+const loadInput   = document.getElementById("load");
+const radiusInput = document.getElementById("radius");
+const obsRadiusInput = document.getElementById("obsRadius");
+const obsHeightInput = document.getElementById("obsHeight");
+const marginInput = document.getElementById("margin");
+const showAltInput = document.getElementById("showAlt");
+const altToggleLabel = document.getElementById("altToggleLabel");
+const result = document.getElementById("result");
 
 /* ================= CONFIG ================= */
 const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [];
-let CURRENT_META = {};
+let META = {};
 
 /* ================= LOAD DATA ================= */
-function loadData(ballastKey) {
-  fetch(`loadchart_${ballastKey}.json?v=2024-03-01`)
+function loadData(key) {
+  fetch(`loadchart_${key}.json?v=2024-03-01`)
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
-      CURRENT_META = d.meta;
-      metaBallast.innerHTML = "<strong>Ballast:</strong> " + d.meta.ballast;
+      META = d.meta;
+      metaBallast.innerHTML = "<strong>Ballast:</strong> " + META.ballast;
       updateBoomOptions();
       calculate();
-    })
-    .catch(e => {
-      result.innerHTML = "Failed to load chart data.";
-      console.error(e);
     });
 }
 
@@ -172,14 +175,17 @@ function applyModeUI(mode) {
   boomRequest.disabled = !boomMode;
   boomSelect.disabled  = !boomMode;
 
-  loadInput.disabled       = boomMode;
-  radiusInput.disabled     = boomMode;
-  obsRadiusInput.disabled  = boomMode;
-  obsHeightInput.disabled  = boomMode;
-  marginInput.disabled     = boomMode;
+  loadInput.disabled = boomMode;
+  radiusInput.disabled = boomMode;
+  obsRadiusInput.disabled = boomMode;
+  obsHeightInput.disabled = boomMode;
+  marginInput.disabled = boomMode;
+
+  altToggleLabel.style.display = boomMode ? "none" : "block";
+  if (boomMode) showAltInput.checked = false;
 
   modeBadge.textContent = boomMode ? "Mode: Boom-specific" : "Mode: Optimised";
-  modeBadge.className   = "badge " + (boomMode ? "boom" : "optimised");
+  modeBadge.className = "badge " + (boomMode ? "boom" : "optimised");
 }
 
 /* ================= BOOM OPTIONS ================= */
@@ -192,33 +198,36 @@ function updateBoomOptions() {
 
   booms.forEach(b => {
     if (Math.abs(b - req) <= 3) {
-      const opt = document.createElement("option");
-      opt.value = b;
-      opt.textContent = `${b} m`;
-      boomSelect.appendChild(opt);
+      const o = document.createElement("option");
+      o.value = b;
+      o.textContent = `${b} m`;
+      boomSelect.appendChild(o);
     }
   });
 }
 
-/* ================= MAIN LOGIC ================= */
+/* ================= CALCULATE ================= */
 function calculate() {
   if (!DATA.length) return;
 
   const mode = document.querySelector('input[name="mode"]:checked').value;
 
-  /* ---- BOOM MODE ---- */
+  /* ===== BOOM-SPECIFIC MODE ===== */
   if (mode === "boom") {
     if (!boomSelect.value) {
       result.innerHTML = "Select a boom length.";
       return;
     }
 
-    const rows = DATA.filter(r => String(r.boom) === boomSelect.value);
+    const rows = DATA
+      .filter(r => String(r.boom) === boomSelect.value)
+      .sort((a,b)=>a.radius-b.radius);
+
     const config = rows[0].config;
 
     let html = `
       <div class="output-meta">
-        <strong>Ballast:</strong> ${CURRENT_META.ballast}<br>
+        <strong>Ballast:</strong> ${META.ballast}<br>
         <strong>Boom:</strong> ${boomSelect.value} m<br>
         <strong>Configuration:</strong> ${config}
       </div>
@@ -226,7 +235,7 @@ function calculate() {
         <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
     `;
 
-    rows.sort((a,b)=>a.radius-b.radius).forEach(r=>{
+    rows.forEach(r => {
       html += `<tr><td>${r.radius}</td><td>${r.capacity}</td></tr>`;
     });
 
@@ -235,7 +244,7 @@ function calculate() {
     return;
   }
 
-  /* ---- OPTIMISED MODE ---- */
+  /* ===== OPTIMISED MODE ===== */
   const load = +loadInput.value;
   const radius = +radiusInput.value;
   const obsRadius = +obsRadiusInput.value;
@@ -249,7 +258,7 @@ function calculate() {
 
   let candidates = [];
 
-  DATA.forEach(r=>{
+  DATA.forEach(r => {
     if (r.radius < radius) return;
     if (r.capacity < load) return;
 
@@ -269,20 +278,35 @@ function calculate() {
 
   candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
+  const alt  = candidates[1];
 
-  result.innerHTML = `
+  let html = `
     <h3>Best (Safest) Configuration</h3>
     <p><b>Boom:</b> ${best.boom} m</p>
     <p><b>Radius:</b> ${radius} m</p>
     <p><b>Capacity:</b> ${best.capacity} t</p>
     <p><b>Utilisation:</b> ${best.util.toFixed(1)}%</p>
   `;
+
+  if (showAltInput.checked && alt) {
+    html += `
+      <hr>
+      <h3>Alternative Configuration</h3>
+      <p><b>Boom:</b> ${alt.boom} m</p>
+      <p><b>Capacity:</b> ${alt.capacity} t</p>
+      <p><b>Utilisation:</b> ${alt.util.toFixed(1)}%</p>
+    `;
+  }
+
+  result.innerHTML = html;
 }
 
 /* ================= EVENTS ================= */
 ballast.addEventListener("change", e => loadData(e.target.value));
 boomRequest.addEventListener("input", ()=>{ updateBoomOptions(); calculate(); });
 boomSelect.addEventListener("change", calculate);
+showAltInput.addEventListener("change", calculate);
+
 loadInput.addEventListener("input", calculate);
 radiusInput.addEventListener("input", calculate);
 obsRadiusInput.addEventListener("input", calculate);
@@ -290,7 +314,7 @@ obsHeightInput.addEventListener("input", calculate);
 marginInput.addEventListener("input", calculate);
 
 document.querySelectorAll('input[name="mode"]')
-  .forEach(r=>r.addEventListener("change", e=>{
+  .forEach(r => r.addEventListener("change", e => {
     applyModeUI(e.target.value);
     calculate();
   }));
