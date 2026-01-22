@@ -44,6 +44,14 @@ input[type="number"], select {
 .badge.optimised { background:#0066cc; }
 .badge.boom { background:#555; }
 
+.mode-toggle {
+  margin:10px 0;
+}
+.mode-toggle label {
+  font-weight:normal;
+  margin-right:12px;
+}
+
 table {
   width:100%;
   border-collapse:collapse;
@@ -71,6 +79,18 @@ th {
 
 <div class="card">
 <h2>Inputs</h2>
+
+<div class="mode-toggle">
+  <strong>Mode:</strong><br>
+  <label>
+    <input type="radio" name="mode" value="optimised" checked>
+    Optimised (best configuration)
+  </label>
+  <label>
+    <input type="radio" name="mode" value="boom">
+    Boom-specific (load chart)
+  </label>
+</div>
 
 <label>Ballast configuration</label>
 <select id="ballast">
@@ -116,7 +136,7 @@ function loadData(ballastKey) {
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
-      document.getElementById("metaBallast").innerHTML =
+      metaBallast.innerHTML =
         "<strong>Ballast:</strong> " + d.meta.ballast;
       updateBoomOptions();
       calculate();
@@ -127,7 +147,6 @@ function loadData(ballastKey) {
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   const req = boomRequest.value;
-
   if (!DATA.length || !req) return;
 
   const booms = [...new Set(DATA.map(r => r.boom))].sort((a,b)=>a-b);
@@ -146,12 +165,10 @@ function updateBoomOptions() {
 function calculate() {
   if (!DATA.length) return;
 
-  const reqBoom = boomRequest.value;
-  const selectedBoom = boomSelect.value;
-  const boomLocked = reqBoom && selectedBoom;
+  const mode = document.querySelector('input[name="mode"]:checked').value;
 
-  /* ----- MODE UI ----- */
-  if (boomLocked) {
+  // Mode badge
+  if (mode === "boom") {
     modeBadge.textContent = "Mode: Boom-specific";
     modeBadge.className = "badge boom";
   } else {
@@ -159,8 +176,14 @@ function calculate() {
     modeBadge.className = "badge optimised";
   }
 
-  /* ================= BOOM-SPECIFIC MODE ================= */
-  if (boomLocked) {
+  /* ========== BOOM MODE ========== */
+  if (mode === "boom") {
+    const selectedBoom = boomSelect.value;
+    if (!selectedBoom) {
+      result.innerHTML = "Select a boom length.";
+      return;
+    }
+
     const rows = DATA
       .filter(r => String(r.boom) === String(selectedBoom))
       .sort((a,b)=>a.radius-b.radius);
@@ -188,7 +211,7 @@ function calculate() {
     return;
   }
 
-  /* ================= OPTIMISED MODE ================= */
+  /* ========== OPTIMISED MODE ========== */
   const load = +loadInput.value;
   const radius = +radiusInput.value;
   const obsRadius = +obsRadiusInput.value;
@@ -239,17 +262,13 @@ function calculate() {
 
 /* ---------- Wiring ---------- */
 ballast.addEventListener("change", e => loadData(e.target.value));
-
 boomRequest.addEventListener("input", () => {
-  if (!boomRequest.value) boomSelect.innerHTML = "";
   updateBoomOptions();
   calculate();
 });
-
 boomSelect.addEventListener("change", calculate);
-
-document.querySelectorAll("input")
-  .forEach(i => i.addEventListener("input", calculate));
+document.querySelectorAll("input, select")
+  .forEach(el => el.addEventListener("change", calculate));
 
 /* ---------- Init ---------- */
 loadData(ballast.value);
