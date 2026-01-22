@@ -48,6 +48,17 @@ hr { margin:16px 0; }
   padding:8px;
   border-radius:6px;
 }
+.badge {
+  display:inline-block;
+  margin-top:6px;
+  padding:4px 8px;
+  background:#333;
+  color:#fff;
+  border-radius:12px;
+  font-size:0.8em;
+}
+.badge.optimised { background:#0066cc; }
+.badge.boom { background:#555; }
 </style>
 </head>
 
@@ -56,7 +67,8 @@ hr { margin:16px 0; }
 <div class="card meta">
   <strong>Crane:</strong> GMK5130-1<br>
   <strong>Slew:</strong> 360°<br>
-  <span id="metaBallast"><strong>Ballast:</strong> —</span>
+  <span id="metaBallast"><strong>Ballast:</strong> —</span><br>
+  <span id="modeBadge" class="badge optimised">Mode: Optimised</span>
 </div>
 
 <div class="card">
@@ -64,31 +76,31 @@ hr { margin:16px 0; }
 
 <label>Ballast configuration</label>
 <select id="ballast">
-  <option value="23_5t" selected>23.5 t</option>
+  <option value="23_5t">23.5 t</option>
   <option value="40_1t">40.1 t</option>
   <option value="6t">6 t</option>
 </select>
 
 <label>Requested boom length (m)</label>
-<input id="boomRequest" type="number" value="22">
+<input id="boomRequest" type="number">
 
 <label>Select available boom length</label>
 <select id="boomSelect"></select>
 
 <label>Load (t)</label>
-<input id="load" type="number" value="8">
+<input id="load" type="number">
 
 <label>Working Radius (m)</label>
-<input id="radius" type="number" value="10">
+<input id="radius" type="number">
 
 <label>Obstruction Radius (m)</label>
-<input id="obsRadius" type="number" value="1">
+<input id="obsRadius" type="number">
 
 <label>Obstruction Height (m)</label>
-<input id="obsHeight" type="number" value="1">
+<input id="obsHeight" type="number">
 
 <label>Clearance Margin (m)</label>
-<input id="margin" type="number" value="1">
+<input id="margin" type="number">
 
 <label>
   <input type="checkbox" id="showAlt">
@@ -98,7 +110,7 @@ hr { margin:16px 0; }
 
 <div class="card">
 <h2>Result</h2>
-<div id="result">Loading data…</div>
+<div id="result">Select inputs to calculate.</div>
 </div>
 
 <script>
@@ -136,26 +148,14 @@ function updateBoomOptions() {
   const booms = [...new Set(DATA.map(r => r.boom))]
     .sort((a, b) => a - b);
 
-  let added = false;
-
   booms.forEach(b => {
-    if (Math.abs(b - req) <= 3) {
+    if (!req || Math.abs(b - req) <= 3) {
       const opt = document.createElement("option");
       opt.value = b;
       opt.textContent = `${b} m`;
       boomSelect.appendChild(opt);
-      added = true;
     }
   });
-
-  if (!added) {
-    booms.forEach(b => {
-      const opt = document.createElement("option");
-      opt.value = b;
-      opt.textContent = `${b} m`;
-      boomSelect.appendChild(opt);
-    });
-  }
 }
 
 /* ================= CORE LOGIC ================= */
@@ -167,16 +167,33 @@ function calculate() {
   const obsRadius = +obsRadiusInput.value;
   const obsHeight = +obsHeightInput.value;
   const margin = +marginInput.value;
-  const showAlt = showAltInput.checked;
   const selectedBoom = +boomSelect.value;
+  const boomLocked = !!selectedBoom;
+
+  // Mode badge + toggle control
+  if (boomLocked) {
+    modeBadge.textContent = "Mode: Boom-specific";
+    modeBadge.className = "badge boom";
+    showAltInput.checked = false;
+    showAltInput.disabled = true;
+  } else {
+    modeBadge.textContent = "Mode: Optimised";
+    modeBadge.className = "badge optimised";
+    showAltInput.disabled = false;
+  }
+
+  if (!load || !radius || !obsRadius || !obsHeight) {
+    result.innerHTML = "Enter all required inputs.";
+    return;
+  }
 
   const requiredHeight =
-    (obsHeight * radius / obsRadius) + margin;
+    (obsHeight * radius / obsRadius) + (margin || 0);
 
   let candidates = [];
 
   DATA.forEach(row => {
-    if (selectedBoom && row.boom !== selectedBoom) return;
+    if (boomLocked && row.boom !== selectedBoom) return;
     if (row.radius < radius) return;
     if (row.capacity < load) return;
 
@@ -206,7 +223,6 @@ function calculate() {
   });
 
   const best = candidates[0];
-  const second = candidates.length > 1 ? candidates[1] : null;
 
   function utilClass(u) {
     if (u >= 90) return "danger";
@@ -214,34 +230,21 @@ function calculate() {
     return "ok";
   }
 
-  let html = `
-    <h3>Best (Safest) Configuration</h3>
-    <div class="config">${best.config}</div>
-    <p>Boom: ${best.boom} m</p>
-    <p>Capacity: ${best.capacity} t</p>
-    <p>Utilisation:
+  let html = boomLocked
+    ? `<h3>Selected Boom Configuration</h3>`
+    : `<h3>Best (Safest) Configuration</h3>`;
+
+  html += `
+    <p><strong>Boom length:</strong> ${best.boom} m</p>
+    <p><strong>Radius:</strong> ${radius} m</p>
+    <p><strong>Chart capacity at radius:</strong> ${best.capacity} t</p>
+    <p><strong>Utilisation:</strong>
       <span class="${utilClass(best.util)}">
         ${best.util.toFixed(1)}%
       </span>
     </p>
-    <p>Tip height: ${best.tipHeight.toFixed(1)} m</p>
+    <p><strong>Tip height:</strong> ${best.tipHeight.toFixed(1)} m</p>
   `;
-
-  if (showAlt && second) {
-    html += `
-      <hr>
-      <h3>Alternative Configuration</h3>
-      <div class="config">${second.config}</div>
-      <p>Boom: ${second.boom} m</p>
-      <p>Capacity: ${second.capacity} t</p>
-      <p>Utilisation:
-        <span class="${utilClass(second.util)}">
-          ${second.util.toFixed(1)}%
-        </span>
-      </p>
-      <p>Tip height: ${second.tipHeight.toFixed(1)} m</p>
-    `;
-  }
 
   result.innerHTML = html;
 }
@@ -257,6 +260,7 @@ const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
 const showAltInput = document.getElementById("showAlt");
 const result = document.getElementById("result");
+const modeBadge = document.getElementById("modeBadge");
 
 ballastInput.addEventListener("change", e => loadData(e.target.value));
 boomRequest.addEventListener("input", () => {
