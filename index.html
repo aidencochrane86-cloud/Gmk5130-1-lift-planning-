@@ -91,14 +91,8 @@ th { background:#f0f0f0; }
 
 <div class="mode-toggle">
   <strong>Mode:</strong><br>
-  <label>
-    <input type="radio" name="mode" value="optimised" checked>
-    Optimised (best configuration)
-  </label>
-  <label>
-    <input type="radio" name="mode" value="boom">
-    Boom-specific (load chart)
-  </label>
+  <label><input type="radio" name="mode" value="optimised" checked> Optimised</label>
+  <label><input type="radio" name="mode" value="boom"> Boom-specific</label>
 </div>
 
 <label>Ballast</label>
@@ -136,48 +130,59 @@ th { background:#f0f0f0; }
 </div>
 
 <script>
+/* ================= DOM BINDINGS ================= */
+const metaBallast   = document.getElementById("metaBallast");
+const modeBadge     = document.getElementById("modeBadge");
+const ballast       = document.getElementById("ballast");
+const boomRequest   = document.getElementById("boomRequest");
+const boomSelect    = document.getElementById("boomSelect");
+const loadInput     = document.getElementById("load");
+const radiusInput   = document.getElementById("radius");
+const obsRadiusInput= document.getElementById("obsRadius");
+const obsHeightInput= document.getElementById("obsHeight");
+const marginInput   = document.getElementById("margin");
+const result        = document.getElementById("result");
+
+/* ================= CONFIG ================= */
 const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [];
 let CURRENT_META = {};
 
-/* ---------- Load chart ---------- */
+/* ================= LOAD DATA ================= */
 function loadData(ballastKey) {
   fetch(`loadchart_${ballastKey}.json?v=2024-03-01`)
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
       CURRENT_META = d.meta;
-
-      metaBallast.innerHTML =
-        "<strong>Ballast:</strong> " + d.meta.ballast;
-
+      metaBallast.innerHTML = "<strong>Ballast:</strong> " + d.meta.ballast;
       updateBoomOptions();
       calculate();
+    })
+    .catch(e => {
+      result.innerHTML = "Failed to load chart data.";
+      console.error(e);
     });
 }
 
-/* ---------- Mode UI enforcement ---------- */
+/* ================= MODE UI ================= */
 function applyModeUI(mode) {
   const boomMode = mode === "boom";
 
   boomRequest.disabled = !boomMode;
-  boomSelect.disabled = !boomMode;
+  boomSelect.disabled  = !boomMode;
 
-  loadInput.disabled = boomMode;
-  radiusInput.disabled = boomMode;
-  obsRadiusInput.disabled = boomMode;
-  obsHeightInput.disabled = boomMode;
-  marginInput.disabled = boomMode;
+  loadInput.disabled       = boomMode;
+  radiusInput.disabled     = boomMode;
+  obsRadiusInput.disabled  = boomMode;
+  obsHeightInput.disabled  = boomMode;
+  marginInput.disabled     = boomMode;
 
-  modeBadge.textContent = boomMode
-    ? "Mode: Boom-specific"
-    : "Mode: Optimised";
-
-  modeBadge.className =
-    "badge " + (boomMode ? "boom" : "optimised");
+  modeBadge.textContent = boomMode ? "Mode: Boom-specific" : "Mode: Optimised";
+  modeBadge.className   = "badge " + (boomMode ? "boom" : "optimised");
 }
 
-/* ---------- Boom dropdown ---------- */
+/* ================= BOOM OPTIONS ================= */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!boomRequest.value || !DATA.length) return;
@@ -195,52 +200,34 @@ function updateBoomOptions() {
   });
 }
 
-/* ---------- Main logic ---------- */
+/* ================= MAIN LOGIC ================= */
 function calculate() {
   if (!DATA.length) return;
 
   const mode = document.querySelector('input[name="mode"]:checked').value;
 
-  /* ===== BOOM-SPECIFIC MODE ===== */
+  /* ---- BOOM MODE ---- */
   if (mode === "boom") {
     if (!boomSelect.value) {
       result.innerHTML = "Select a boom length.";
       return;
     }
 
-    const rows = DATA
-      .filter(r => String(r.boom) === boomSelect.value)
-      .sort((a,b)=>a.radius-b.radius);
-
-    if (!rows.length) {
-      result.innerHTML = "No data for selected boom.";
-      return;
-    }
-
+    const rows = DATA.filter(r => String(r.boom) === boomSelect.value);
     const config = rows[0].config;
 
     let html = `
       <div class="output-meta">
         <strong>Ballast:</strong> ${CURRENT_META.ballast}<br>
-        <strong>Boom length:</strong> ${boomSelect.value} m<br>
-        <strong>Boom configuration:</strong> ${config}
+        <strong>Boom:</strong> ${boomSelect.value} m<br>
+        <strong>Configuration:</strong> ${config}
       </div>
-
-      <h3>Load chart – boom ${boomSelect.value} m</h3>
       <table>
-        <tr>
-          <th>Radius (m)</th>
-          <th>Capacity (t)</th>
-        </tr>
+        <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
     `;
 
-    rows.forEach(r => {
-      html += `
-        <tr>
-          <td>${r.radius}</td>
-          <td>${r.capacity}</td>
-        </tr>
-      `;
+    rows.sort((a,b)=>a.radius-b.radius).forEach(r=>{
+      html += `<tr><td>${r.radius}</td><td>${r.capacity}</td></tr>`;
     });
 
     html += "</table>";
@@ -248,7 +235,7 @@ function calculate() {
     return;
   }
 
-  /* ===== OPTIMISED MODE ===== */
+  /* ---- OPTIMISED MODE ---- */
   const load = +loadInput.value;
   const radius = +radiusInput.value;
   const obsRadius = +obsRadiusInput.value;
@@ -260,28 +247,23 @@ function calculate() {
     return;
   }
 
-  const requiredHeight =
-    (obsHeight * radius / obsRadius) + margin;
-
   let candidates = [];
 
-  DATA.forEach(r => {
+  DATA.forEach(r=>{
     if (r.radius < radius) return;
     if (r.capacity < load) return;
 
     const tipHeight =
       BOOM_FOOT_HEIGHT + Math.sqrt(r.boom*r.boom - radius*radius);
 
+    const requiredHeight = (obsHeight * radius / obsRadius) + margin;
     if (tipHeight < requiredHeight) return;
 
-    candidates.push({
-      ...r,
-      util: (load / r.capacity) * 100
-    });
+    candidates.push({...r, util:(load/r.capacity)*100});
   });
 
   if (!candidates.length) {
-    result.innerHTML = "<b>No valid configuration</b>";
+    result.innerHTML = "No valid configuration.";
     return;
   }
 
@@ -297,15 +279,10 @@ function calculate() {
   `;
 }
 
-/* ---------- Wiring ---------- */
+/* ================= EVENTS ================= */
 ballast.addEventListener("change", e => loadData(e.target.value));
-
-boomRequest.addEventListener("input", () => {
-  updateBoomOptions();
-  calculate();
-});
+boomRequest.addEventListener("input", ()=>{ updateBoomOptions(); calculate(); });
 boomSelect.addEventListener("change", calculate);
-
 loadInput.addEventListener("input", calculate);
 radiusInput.addEventListener("input", calculate);
 obsRadiusInput.addEventListener("input", calculate);
@@ -313,12 +290,12 @@ obsHeightInput.addEventListener("input", calculate);
 marginInput.addEventListener("input", calculate);
 
 document.querySelectorAll('input[name="mode"]')
-  .forEach(r => r.addEventListener("change", e => {
+  .forEach(r=>r.addEventListener("change", e=>{
     applyModeUI(e.target.value);
     calculate();
   }));
 
-/* ---------- Init ---------- */
+/* ================= INIT ================= */
 applyModeUI("optimised");
 loadData(ballast.value);
 </script>
