@@ -107,11 +107,10 @@ th {
 </div>
 
 <script>
-/* ================= CONFIG ================= */
 const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [];
 
-/* ================= LOAD DATA ================= */
+/* ---------- Load chart ---------- */
 function loadData(ballastKey) {
   fetch(`loadchart_${ballastKey}.json?v=2024-03-01`)
     .then(r => r.json())
@@ -121,22 +120,20 @@ function loadData(ballastKey) {
         "<strong>Ballast:</strong> " + d.meta.ballast;
       updateBoomOptions();
       calculate();
-    })
-    .catch(() => {
-      result.innerHTML = "<b>Load chart not found</b>";
     });
 }
 
-/* ================= BOOM OPTIONS ================= */
+/* ---------- Boom dropdown ---------- */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
-  if (!DATA.length) return;
+  const req = boomRequest.value;
 
-  const req = +boomRequest.value;
+  if (!DATA.length || !req) return;
+
   const booms = [...new Set(DATA.map(r => r.boom))].sort((a,b)=>a-b);
 
   booms.forEach(b => {
-    if (!req || Math.abs(b - req) <= 3) {
+    if (Math.abs(b - req) <= 3) {
       const opt = document.createElement("option");
       opt.value = b;
       opt.textContent = `${b} m`;
@@ -145,12 +142,13 @@ function updateBoomOptions() {
   });
 }
 
-/* ================= CORE LOGIC ================= */
+/* ---------- Main logic ---------- */
 function calculate() {
   if (!DATA.length) return;
 
-  const selectedBoom = +boomSelect.value;
-  const boomLocked = !!selectedBoom;
+  const reqBoom = boomRequest.value;
+  const selectedBoom = boomSelect.value;
+  const boomLocked = reqBoom && selectedBoom;
 
   /* ----- MODE UI ----- */
   if (boomLocked) {
@@ -161,12 +159,10 @@ function calculate() {
     modeBadge.className = "badge optimised";
   }
 
-  /* ==========================================================
-     BOOM-SPECIFIC MODE → SHOW FULL LOAD CHART (NO INPUTS)
-     ========================================================== */
+  /* ================= BOOM-SPECIFIC MODE ================= */
   if (boomLocked) {
     const rows = DATA
-      .filter(r => r.boom === selectedBoom)
+      .filter(r => String(r.boom) === String(selectedBoom))
       .sort((a,b)=>a.radius-b.radius);
 
     let html = `
@@ -189,12 +185,10 @@ function calculate() {
 
     html += "</table>";
     result.innerHTML = html;
-    return; // 🔒 critical guard
+    return;
   }
 
-  /* ==========================================================
-     OPTIMISED MODE → CALCULATOR
-     ========================================================== */
+  /* ================= OPTIMISED MODE ================= */
   const load = +loadInput.value;
   const radius = +radiusInput.value;
   const obsRadius = +obsRadiusInput.value;
@@ -243,28 +237,21 @@ function calculate() {
   `;
 }
 
-/* ================= WIRING ================= */
-const ballast = document.getElementById("ballast");
-const boomRequest = document.getElementById("boomRequest");
-const boomSelect = document.getElementById("boomSelect");
-const loadInput = document.getElementById("load");
-const radiusInput = document.getElementById("radius");
-const obsRadiusInput = document.getElementById("obsRadius");
-const obsHeightInput = document.getElementById("obsHeight");
-const marginInput = document.getElementById("margin");
-const result = document.getElementById("result");
-const modeBadge = document.getElementById("modeBadge");
-
+/* ---------- Wiring ---------- */
 ballast.addEventListener("change", e => loadData(e.target.value));
+
 boomRequest.addEventListener("input", () => {
+  if (!boomRequest.value) boomSelect.innerHTML = "";
   updateBoomOptions();
   calculate();
 });
+
 boomSelect.addEventListener("change", calculate);
+
 document.querySelectorAll("input")
   .forEach(i => i.addEventListener("input", calculate));
 
-/* ================= INIT ================= */
+/* ---------- Init ---------- */
 loadData(ballast.value);
 </script>
 
