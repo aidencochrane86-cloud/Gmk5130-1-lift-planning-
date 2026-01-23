@@ -101,9 +101,9 @@ th { background:#f0f0f0; }
 
 <label>Ballast</label>
 <select id="ballast">
-  <option value="40_1t">40.1 t (code = 2200)</option>
-  <option value="23_5t">23.5 t (code = 1900)</option>
-  <option value="6t">6 t (code = 1200)</option>
+  <option value="40_1t" data-code="2200">40.1 t (code = 2200)</option>
+  <option value="23_5t" data-code="1900">23.5 t (code = 1900)</option>
+  <option value="6t" data-code="1200">6 t (code = 1200)</option>
 </select>
 
 <label>Requested boom length (m)</label>
@@ -166,6 +166,10 @@ function utilClass(u) {
   return "util-green";
 }
 
+function currentBallastCode() {
+  return ballast.selectedOptions[0].dataset.code;
+}
+
 /* ================= LOAD DATA ================= */
 function loadData(key) {
   fetch(`loadchart_${key}.json?v=2024-03-01`)
@@ -173,7 +177,8 @@ function loadData(key) {
     .then(d => {
       DATA = d.charts;
       META = d.meta;
-      metaBallast.innerHTML = "<strong>Ballast:</strong> " + META.ballast;
+      metaBallast.innerHTML =
+        `<strong>Ballast:</strong> ${META.ballast} (code ${currentBallastCode()})`;
       updateBoomOptions();
       calculate();
     });
@@ -238,7 +243,7 @@ function calculate() {
 
     let html = `
       <div class="output-meta">
-        <strong>Ballast:</strong> ${META.ballast}<br>
+        <strong>Ballast:</strong> ${META.ballast} (code ${currentBallastCode()})<br>
         <strong>Boom:</strong> ${boomSelect.value} m<br>
         <strong>Configuration:</strong> ${config}
       </div>
@@ -283,7 +288,7 @@ function calculate() {
       boom: r.boom,
       radius: r.radius,
       capacity: r.capacity,
-      config: r.config,          // ✅ explicitly preserved
+      config: r.config,
       util: (load / r.capacity) * 100
     });
   });
@@ -329,7 +334,12 @@ function calculate() {
 }
 
 /* ================= EVENTS ================= */
-ballast.addEventListener("change", e => loadData(e.target.value));
+ballast.addEventListener("change", e => {
+  boomSelect.innerHTML = "";
+  result.innerHTML = "Select inputs.";
+  loadData(e.target.value);
+});
+
 boomRequest.addEventListener("input", ()=>{ updateBoomOptions(); calculate(); });
 boomSelect.addEventListener("change", calculate);
 showAltInput.addEventListener("change", calculate);
