@@ -79,9 +79,7 @@ th { background:#f0f0f0; }
 <body>
 
 <div class="card meta">
-  <strong>Crane:</strong> GMK5130-1<br>
-  <strong>Slew:</strong> 360°<br>
-  <span id="metaBallast"><strong>Ballast:</strong> —</span><br>
+  <span id="metaHeader"></span><br>
   <span id="modeBadge" class="badge optimised">Mode: Optimised</span>
 </div>
 
@@ -99,9 +97,9 @@ th { background:#f0f0f0; }
 
 <label>Ballast</label>
 <select id="ballast">
-  <option value="40_1t" data-code="2200">40.1t code 2200</option>
-  <option value="23_5t" data-code="1900">23.5t code 1900</option>
-  <option value="6t" data-code="1200">6t code 1200</option>
+  <option value="40_1t">40.1t code 2200</option>
+  <option value="23_5t">23.5t code 1900</option>
+  <option value="6t">6t code 1200</option>
 </select>
 
 <label>Requested boom length (m)</label>
@@ -140,6 +138,7 @@ th { background:#f0f0f0; }
 const BOOM_FOOT_HEIGHT = 2.0;
 
 let DATA = [];
+let META = {};
 
 const ballast = document.getElementById("ballast");
 const boomRequest = document.getElementById("boomRequest");
@@ -152,7 +151,7 @@ const marginInput = document.getElementById("margin");
 const showAltInput = document.getElementById("showAlt");
 const altToggleLabel = document.getElementById("altToggleLabel");
 const result = document.getElementById("result");
-const metaBallast = document.getElementById("metaBallast");
+const metaHeader = document.getElementById("metaHeader");
 const modeBadge = document.getElementById("modeBadge");
 
 function utilClass(u) {
@@ -182,15 +181,22 @@ function loadData(key) {
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
-      metaBallast.innerHTML =
-  "<strong>Ballast:</strong> " + ballast.selectedOptions[0].text;
+      META = d.meta || {};
+
+      let header = "";
+
+      if (META.crane) header += `<strong>Crane:</strong> ${META.crane}<br>`;
+      if (META.slew) header += `<strong>Slew:</strong> ${META.slew}<br>`;
+      header += `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}<br>`;
+      if (META.outriggers) header += `<strong>Outriggers:</strong> ${META.outriggers}<br>`;
+      if (META.sli) header += `<strong>SLI:</strong> ${META.sli}`;
+
+      metaHeader.innerHTML = header;
 
       updateBoomOptions();
       calculate();
     });
 }
-
-
 
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
@@ -210,16 +216,12 @@ function updateBoomOptions() {
     }
   });
 
-  if (boomSelect.options.length > 0) {
-    boomSelect.selectedIndex = 0;
-  }
+  if (boomSelect.options.length > 0) boomSelect.selectedIndex = 0;
 }
 
 function calculate() {
   const mode = document.querySelector('input[name="mode"]:checked').value;
   applyInputLocking(mode);
-
-  const ballastText = ballast.selectedOptions[0].text;
 
   modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Optimised";
   modeBadge.className = "badge " + (mode === "boom" ? "boom" : "optimised");
@@ -238,7 +240,7 @@ function calculate() {
       <div class="output-meta">
         <strong>Boom:</strong> ${boomSelect.value} m<br>
         <strong>Configuration:</strong> ${rows[0].config}<br>
-        <strong>Ballast:</strong> ${ballastText}
+        <strong>Ballast:</strong> ${ballast.selectedOptions[0].text}
       </div>
       <table>
         <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
@@ -269,10 +271,9 @@ function calculate() {
   DATA.forEach(r => {
     if (r.radius < radius || r.capacity < load) return;
 
-    const tip =
-      BOOM_FOOT_HEIGHT + Math.sqrt(r.boom*r.boom - radius*radius);
-
+    const tip = BOOM_FOOT_HEIGHT + Math.sqrt(r.boom*r.boom - radius*radius);
     const reqH = (obsH * radius / obsR) + margin;
+
     if (tip < reqH) return;
 
     candidates.push({
@@ -296,7 +297,7 @@ function calculate() {
     <h3>Best (Safest) Configuration</h3>
     <p><b>Configuration:</b> ${best.config}</p>
     <p><b>Boom:</b> ${best.boom} m</p>
-    <p><b>Ballast:</b> ${ballastText}</p>
+    <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
     <p><b>Utilisation:</b>
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
@@ -308,7 +309,7 @@ function calculate() {
       <h3>Alternative Configuration</h3>
       <p><b>Configuration:</b> ${alt.config}</p>
       <p><b>Boom:</b> ${alt.boom} m</p>
-      <p><b>Ballast:</b> ${ballastText}</p>
+      <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
       <p><b>Utilisation:</b>
         <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
       </p>
@@ -318,7 +319,6 @@ function calculate() {
   result.innerHTML = html;
 }
 
-/* ===== EVENT WIRING ===== */
 [boomRequest, loadInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput, showAltInput]
 .forEach(e => e.addEventListener("input", () => {
@@ -342,3 +342,4 @@ loadData(ballast.value);
 
 </body>
 </html>
+
