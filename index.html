@@ -176,7 +176,24 @@ function ballastCode() {
   return ballast.selectedOptions[0].dataset.code;
 }
 
-/* ================= LOAD ALL DATA ================= */
+/* ================= INPUT LOCKING ================= */
+function applyInputLocking(mode) {
+  const boomMode = mode === "boom";
+
+  boomRequest.disabled = !boomMode;
+  boomSelect.disabled  = !boomMode;
+
+  loadInput.disabled      = boomMode;
+  radiusInput.disabled    = boomMode;
+  obsRadiusInput.disabled = boomMode;
+  obsHeightInput.disabled = boomMode;
+  marginInput.disabled    = boomMode;
+
+  altToggleLabel.style.display = boomMode ? "none" : "block";
+  if (boomMode) showAltInput.checked = false;
+}
+
+/* ================= LOAD ALL CHARTS ================= */
 async function loadAllCharts() {
   const keys = ["40_1t","23_5t","6t"];
   for (const k of keys) {
@@ -184,7 +201,6 @@ async function loadAllCharts() {
     const j = await r.json();
     DATA[k] = j.charts;
   }
-  updateBoomOptions();
   calculate();
 }
 
@@ -209,6 +225,8 @@ function updateBoomOptions() {
 /* ================= CALCULATE ================= */
 function calculate() {
   const mode = document.querySelector('input[name="mode"]:checked').value;
+  applyInputLocking(mode);
+
   ACTIVE = DATA[ballast.value] || [];
 
   metaBallast.innerHTML =
@@ -218,7 +236,6 @@ function calculate() {
 
   /* ---------- BOOM-SPECIFIC MODE ---------- */
   if (mode === "boom") {
-    altToggleLabel.style.display = "none";
     if (!boomRequest.value || !boomSelect.value) {
       result.innerHTML = "Select a boom length.";
       return;
@@ -242,47 +259,11 @@ function calculate() {
     });
     html += "</table>";
 
-    /* --- Ballast comparison intelligence --- */
-    if (DATA["40_1t"] && DATA["23_5t"]) {
-      const hi = DATA["40_1t"].filter(r => r.boom == boomSelect.value);
-      const lo = DATA["23_5t"].filter(r => r.boom == boomSelect.value);
-
-      let firstDiff = null;
-      for (let i=0;i<hi.length;i++) {
-        if (lo[i] && hi[i].capacity !== lo[i].capacity) {
-          firstDiff = hi[i].radius;
-          break;
-        }
-      }
-
-      html += `<div class="warn">${
-        firstDiff
-          ? `Ballast effect begins at ≥ ${firstDiff} m radius`
-          : `No ballast effect across this boom`
-      }</div>`;
-
-      html += `
-        <table>
-          <tr><th>Radius</th><th>23.5 t</th><th>40.1 t</th></tr>
-      `;
-      hi.forEach(r => {
-        const m = lo.find(x => x.radius == r.radius);
-        html += `<tr>
-          <td>${r.radius}</td>
-          <td>${m ? m.capacity : "-"}</td>
-          <td>${r.capacity}</td>
-        </tr>`;
-      });
-      html += "</table>";
-    }
-
     result.innerHTML = html;
     return;
   }
 
   /* ---------- OPTIMISED MODE ---------- */
-  altToggleLabel.style.display = "block";
-
   const load = +loadInput.value;
   const radius = +radiusInput.value;
   const obsR = +obsRadiusInput.value;
@@ -328,15 +309,6 @@ function calculate() {
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
   `;
-
-  if (ballast.value === "40_1t") {
-    const low = DATA["23_5t"].find(r =>
-      r.boom == best.boom && r.capacity >= best.capacity
-    );
-    if (low) {
-      html += `<div class="warn">40.1 t ballast offers no capacity benefit for this lift</div>`;
-    }
-  }
 
   if (showAltInput.checked && alt) {
     html += `
