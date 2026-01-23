@@ -11,10 +11,12 @@
       "radius": "m",
       "capacity": "t"
     }
-  }
-}
-,
+  },
   "charts": [
+    ...
+  ]
+}
+
     {
       "boom": 12.9,
       "radius": 3.0,
