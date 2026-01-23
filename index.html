@@ -183,14 +183,18 @@ function loadData(key) {
     .then(d => {
       DATA = d.charts;
 
-      // ✅ THIS LINE WAS MISSING
+      // ✅ assign meta (required)
       META = d.meta || {};
 
-      // Build header safely
+      // Build header (baseline-safe)
       let header = `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}`;
 
       if (META.outriggers) {
         header += `<br><strong>Outriggers:</strong> ${META.outriggers}`;
+      }
+
+      if (META.sli) {
+        header += `<br><strong>SLI code:</strong> ${META.sli}`;
       }
 
       metaBallast.innerHTML = header;
@@ -199,6 +203,7 @@ function loadData(key) {
       calculate();
     });
 }
+
 
 
 function updateBoomOptions() {
