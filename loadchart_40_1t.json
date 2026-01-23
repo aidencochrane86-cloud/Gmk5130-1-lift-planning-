@@ -2,9 +2,7 @@
   "meta": {
     "crane": "GMK5130-1",
     "ballast": "40.1 t",
-    "slew": "360°",
-    "outriggers": "7.80 x 7.50 m",
-    "sli": "2200",
+    "slew": "360\u00b0",
     "source": "Grove OEM load chart",
     "units": {
       "boom": "m",
@@ -13,10 +11,6 @@
     }
   },
   "charts": [
-    ...
-  ]
-}
-
     {
       "boom": 12.9,
       "radius": 3.0,
