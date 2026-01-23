@@ -189,7 +189,6 @@ function loadData(key) {
     });
 }
 
-/* 🔑 BUG FIX — coerce boom values to numbers */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!boomRequest.value) return;
@@ -217,6 +216,8 @@ function calculate() {
   const mode = document.querySelector('input[name="mode"]:checked').value;
   applyInputLocking(mode);
 
+  const ballastText = ballast.selectedOptions[0].text;
+
   modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Optimised";
   modeBadge.className = "badge " + (mode === "boom" ? "boom" : "optimised");
 
@@ -227,13 +228,14 @@ function calculate() {
     }
 
     const rows = DATA
-      .filter(r => Number(r.boom) == Number(boomSelect.value))
+      .filter(r => Number(r.boom) === Number(boomSelect.value))
       .sort((a,b)=>a.radius-b.radius);
 
     let html = `
       <div class="output-meta">
         <strong>Boom:</strong> ${boomSelect.value} m<br>
-        <strong>Configuration:</strong> ${rows[0].config}
+        <strong>Configuration:</strong> ${rows[0].config}<br>
+        <strong>Ballast:</strong> ${ballastText}
       </div>
       <table>
         <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
@@ -291,6 +293,7 @@ function calculate() {
     <h3>Best (Safest) Configuration</h3>
     <p><b>Configuration:</b> ${best.config}</p>
     <p><b>Boom:</b> ${best.boom} m</p>
+    <p><b>Ballast:</b> ${ballastText}</p>
     <p><b>Utilisation:</b>
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
@@ -302,6 +305,7 @@ function calculate() {
       <h3>Alternative Configuration</h3>
       <p><b>Configuration:</b> ${alt.config}</p>
       <p><b>Boom:</b> ${alt.boom} m</p>
+      <p><b>Ballast:</b> ${ballastText}</p>
       <p><b>Utilisation:</b>
         <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
       </p>
