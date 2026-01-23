@@ -99,9 +99,9 @@ th { background:#f0f0f0; }
 
 <label>Ballast</label>
 <select id="ballast">
-  <option value="40_1t" data-code="2200">40.1 t</option>
-  <option value="23_5t" data-code="1900">23.5 t</option>
-  <option value="6t" data-code="1200">6 t</option>
+  <option value="40_1t" data-code="2200">40.1t code 2200</option>
+  <option value="23_5t" data-code="1900">23.5t code 1900</option>
+  <option value="6t" data-code="1200">6t code 1200</option>
 </select>
 
 <label>Requested boom length (m)</label>
@@ -140,7 +140,6 @@ th { background:#f0f0f0; }
 const BOOM_FOOT_HEIGHT = 2.0;
 
 let DATA = [];
-let META = {};
 
 const ballast = document.getElementById("ballast");
 const boomRequest = document.getElementById("boomRequest");
@@ -183,7 +182,6 @@ function loadData(key) {
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
-      META = d.meta || {};
       metaBallast.innerHTML =
         "<strong>Ballast:</strong> " + ballast.selectedOptions[0].text;
       updateBoomOptions();
@@ -191,12 +189,15 @@ function loadData(key) {
     });
 }
 
+/* 🔑 BUG FIX — coerce boom values to numbers */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!boomRequest.value) return;
 
   const req = +boomRequest.value;
-  const booms = [...new Set(DATA.map(r => r.boom))].sort((a,b)=>a-b);
+  const booms = [...new Set(DATA.map(r => Number(r.boom)))]
+    .filter(b => !isNaN(b))
+    .sort((a,b)=>a-b);
 
   booms.forEach(b => {
     if (Math.abs(b - req) <= 3) {
@@ -226,7 +227,7 @@ function calculate() {
     }
 
     const rows = DATA
-      .filter(r => r.boom == boomSelect.value)
+      .filter(r => Number(r.boom) == Number(boomSelect.value))
       .sort((a,b)=>a.radius-b.radius);
 
     let html = `
@@ -311,7 +312,6 @@ function calculate() {
 }
 
 /* ===== EVENT WIRING ===== */
-
 [boomRequest, loadInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput, showAltInput]
 .forEach(e => e.addEventListener("input", () => {
@@ -321,7 +321,6 @@ function calculate() {
 
 ballast.addEventListener("change", () => {
   boomSelect.innerHTML = "";
-  boomSelect.value = "";
   result.innerHTML = "Select a boom length.";
   loadData(ballast.value);
 });
