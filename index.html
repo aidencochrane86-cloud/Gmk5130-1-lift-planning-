@@ -62,13 +62,9 @@ input:disabled, select:disabled {
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red   { color:#b42318; font-weight:bold; }
 
-.warn {
-  background:#fff4e5;
-  border:1px solid #ffcc80;
-  padding:8px;
-  border-radius:6px;
-  margin-top:8px;
-  font-size:0.9em;
+.mode-toggle label {
+  font-weight:normal;
+  margin-right:12px;
 }
 
 table {
@@ -97,14 +93,11 @@ th { background:#f0f0f0; }
 <div class="card">
 <h2>Inputs</h2>
 
-<label>
-  <input type="radio" name="mode" value="optimised" checked>
-  Optimised (best configuration)
-</label>
-<label>
-  <input type="radio" name="mode" value="boom">
-  Boom-specific (load chart)
-</label>
+<div class="mode-toggle">
+  <strong>Mode:</strong><br>
+  <label><input type="radio" name="mode" value="optimised" checked> Optimised (best configuration)</label>
+  <label><input type="radio" name="mode" value="boom"> Boom-specific (load chart)</label>
+</div>
 
 <label>Ballast</label>
 <select id="ballast">
@@ -148,11 +141,11 @@ th { background:#f0f0f0; }
 <script>
 /* ================= DOM ================= */
 const metaBallast = document.getElementById("metaBallast");
-const modeBadge = document.getElementById("modeBadge");
-const ballast = document.getElementById("ballast");
+const modeBadge   = document.getElementById("modeBadge");
+const ballast     = document.getElementById("ballast");
 const boomRequest = document.getElementById("boomRequest");
-const boomSelect = document.getElementById("boomSelect");
-const loadInput = document.getElementById("load");
+const boomSelect  = document.getElementById("boomSelect");
+const loadInput   = document.getElementById("load");
 const radiusInput = document.getElementById("radius");
 const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
@@ -163,8 +156,8 @@ const result = document.getElementById("result");
 
 /* ================= CONFIG ================= */
 const BOOM_FOOT_HEIGHT = 2.0;
-let DATA = {};
-let ACTIVE = [];
+let DATA = [];
+let META = {};
 
 /* ================= HELPERS ================= */
 function utilClass(u) {
@@ -172,45 +165,52 @@ function utilClass(u) {
   if (u >= 85) return "util-amber";
   return "util-green";
 }
+
 function ballastCode() {
   return ballast.selectedOptions[0].dataset.code;
 }
 
-/* ================= INPUT LOCKING ================= */
-function applyInputLocking(mode) {
+/* ================= LOAD DATA ================= */
+function loadData(key) {
+  fetch(`loadchart_${key}.json?v=2024-03-01`)
+    .then(r => r.json())
+    .then(d => {
+      DATA = d.charts;
+      META = d.meta;
+      metaBallast.innerHTML =
+        `<strong>Ballast:</strong> ${META.ballast} (code ${ballastCode()})`;
+      updateBoomOptions();
+      calculate();
+    });
+}
+
+/* ================= MODE UI ================= */
+function applyModeUI(mode) {
   const boomMode = mode === "boom";
 
   boomRequest.disabled = !boomMode;
   boomSelect.disabled  = !boomMode;
 
-  loadInput.disabled      = boomMode;
-  radiusInput.disabled    = boomMode;
+  loadInput.disabled = boomMode;
+  radiusInput.disabled = boomMode;
   obsRadiusInput.disabled = boomMode;
   obsHeightInput.disabled = boomMode;
-  marginInput.disabled    = boomMode;
+  marginInput.disabled = boomMode;
 
   altToggleLabel.style.display = boomMode ? "none" : "block";
   if (boomMode) showAltInput.checked = false;
-}
 
-/* ================= LOAD ALL CHARTS ================= */
-async function loadAllCharts() {
-  const keys = ["40_1t","23_5t","6t"];
-  for (const k of keys) {
-    const r = await fetch(`loadchart_${k}.json`);
-    const j = await r.json();
-    DATA[k] = j.charts;
-  }
-  calculate();
+  modeBadge.textContent = boomMode ? "Mode: Boom-specific" : "Mode: Optimised";
+  modeBadge.className = "badge " + (boomMode ? "boom" : "optimised");
 }
 
 /* ================= BOOM OPTIONS ================= */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
-  if (!boomRequest.value || !ACTIVE.length) return;
+  if (!boomRequest.value || !DATA.length) return;
 
   const req = +boomRequest.value;
-  const booms = [...new Set(ACTIVE.map(r => r.boom))].sort((a,b)=>a-b);
+  const booms = [...new Set(DATA.map(r => r.boom))].sort((a,b)=>a-b);
 
   booms.forEach(b => {
     if (Math.abs(b - req) <= 3) {
@@ -224,71 +224,72 @@ function updateBoomOptions() {
 
 /* ================= CALCULATE ================= */
 function calculate() {
+  if (!DATA.length) return;
+
   const mode = document.querySelector('input[name="mode"]:checked').value;
-  applyInputLocking(mode);
 
-  ACTIVE = DATA[ballast.value] || [];
-
-  metaBallast.innerHTML =
-    `<strong>Ballast:</strong> ${ballast.options[ballast.selectedIndex].text}`;
-  modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Optimised";
-  modeBadge.className = "badge " + (mode === "boom" ? "boom" : "optimised");
-
-  /* ---------- BOOM-SPECIFIC MODE ---------- */
+  /* ===== BOOM-SPECIFIC MODE ===== */
   if (mode === "boom") {
     if (!boomRequest.value || !boomSelect.value) {
-      result.innerHTML = "Select a boom length.";
+      result.innerHTML = "Select a boom length for the current ballast.";
       return;
     }
 
-    const rows = ACTIVE
-      .filter(r => r.boom == boomSelect.value)
+    const rows = DATA
+      .filter(r => String(r.boom) === boomSelect.value)
       .sort((a,b)=>a.radius-b.radius);
+
+    const config = rows[0].config;
 
     let html = `
       <div class="output-meta">
+        <strong>Ballast:</strong> ${META.ballast} (code ${ballastCode()})<br>
         <strong>Boom:</strong> ${boomSelect.value} m<br>
-        <strong>Ballast code:</strong> ${ballastCode()}<br>
-        <strong>Configuration:</strong> ${rows[0].config}
+        <strong>Configuration:</strong> ${config}
       </div>
       <table>
         <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
     `;
+
     rows.forEach(r => {
       html += `<tr><td>${r.radius}</td><td>${r.capacity}</td></tr>`;
     });
-    html += "</table>";
 
+    html += "</table>";
     result.innerHTML = html;
     return;
   }
 
-  /* ---------- OPTIMISED MODE ---------- */
+  /* ===== OPTIMISED MODE ===== */
   const load = +loadInput.value;
   const radius = +radiusInput.value;
-  const obsR = +obsRadiusInput.value;
-  const obsH = +obsHeightInput.value;
+  const obsRadius = +obsRadiusInput.value;
+  const obsHeight = +obsHeightInput.value;
   const margin = +marginInput.value || 0;
 
-  if (!load || !radius || !obsR || !obsH) {
+  if (!load || !radius || !obsRadius || !obsHeight) {
     result.innerHTML = "Enter all required inputs.";
     return;
   }
 
   let candidates = [];
 
-  ACTIVE.forEach(r => {
-    if (r.radius < radius || r.capacity < load) return;
-    const tip =
+  DATA.forEach(r => {
+    if (r.radius < radius) return;
+    if (r.capacity < load) return;
+
+    const tipHeight =
       BOOM_FOOT_HEIGHT + Math.sqrt(r.boom*r.boom - radius*radius);
-    const reqH = (obsH * radius / obsR) + margin;
-    if (tip < reqH) return;
+
+    const requiredHeight = (obsHeight * radius / obsRadius) + margin;
+    if (tipHeight < requiredHeight) return;
 
     candidates.push({
       boom: r.boom,
+      radius: r.radius,
       capacity: r.capacity,
       config: r.config,
-      util: load / r.capacity * 100
+      util: (load / r.capacity) * 100
     });
   });
 
@@ -299,14 +300,18 @@ function calculate() {
 
   candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
-  const alt = candidates[1];
+  const alt  = candidates[1];
 
   let html = `
     <h3>Best (Safest) Configuration</h3>
     <p><b>Configuration:</b> ${best.config}</p>
     <p><b>Boom:</b> ${best.boom} m</p>
+    <p><b>Radius:</b> ${radius} m</p>
+    <p><b>Capacity:</b> ${best.capacity} t</p>
     <p><b>Utilisation:</b>
-      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+      <span class="${utilClass(best.util)}">
+        ${best.util.toFixed(1)}%
+      </span>
     </p>
   `;
 
@@ -316,8 +321,11 @@ function calculate() {
       <h3>Alternative Configuration</h3>
       <p><b>Configuration:</b> ${alt.config}</p>
       <p><b>Boom:</b> ${alt.boom} m</p>
+      <p><b>Capacity:</b> ${alt.capacity} t</p>
       <p><b>Utilisation:</b>
-        <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
+        <span class="${utilClass(alt.util)}">
+          ${alt.util.toFixed(1)}%
+        </span>
       </p>
     `;
   }
@@ -326,18 +334,32 @@ function calculate() {
 }
 
 /* ================= EVENTS ================= */
-[ballast, boomRequest, boomSelect, loadInput, radiusInput,
- obsRadiusInput, obsHeightInput, marginInput, showAltInput]
-.forEach(e => e.addEventListener("input", () => {
-  ACTIVE = DATA[ballast.value] || [];
-  updateBoomOptions();
-  calculate();
-}));
+ballast.addEventListener("change", e => {
+  boomRequest.value = "";
+  boomSelect.innerHTML = "";
+  result.innerHTML = "Select inputs.";
+  loadData(e.target.value);
+});
+
+boomRequest.addEventListener("input", ()=>{ updateBoomOptions(); calculate(); });
+boomSelect.addEventListener("change", calculate);
+showAltInput.addEventListener("change", calculate);
+
+loadInput.addEventListener("input", calculate);
+radiusInput.addEventListener("input", calculate);
+obsRadiusInput.addEventListener("input", calculate);
+obsHeightInput.addEventListener("input", calculate);
+marginInput.addEventListener("input", calculate);
 
 document.querySelectorAll('input[name="mode"]')
-  .forEach(r => r.addEventListener("change", calculate));
+  .forEach(r => r.addEventListener("change", e => {
+    applyModeUI(e.target.value);
+    calculate();
+  }));
 
-loadAllCharts();
+/* ================= INIT ================= */
+applyModeUI("optimised");
+loadData(ballast.value);
 </script>
 
 </body>
