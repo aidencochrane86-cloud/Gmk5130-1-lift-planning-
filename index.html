@@ -182,12 +182,27 @@ function loadData(key) {
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
-      metaBallast.innerHTML =
-        "<strong>Ballast:</strong> " + ballast.selectedOptions[0].text;
+      META = d.meta || {};
+
+      // Build header from meta + selector
+      let header = "";
+
+      if (META.crane) header += `<strong>Crane:</strong> ${META.crane}<br>`;
+      if (META.slew) header += `<strong>Slew:</strong> ${META.slew}<br>`;
+
+      // Ballast comes from selector (keeps code text)
+      header += `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}<br>`;
+
+      if (META.outriggers) header += `<strong>Outriggers:</strong> ${META.outriggers}<br>`;
+      if (META.sli) header += `<strong>SLI:</strong> ${META.sli}`;
+
+      metaBallast.innerHTML = header;
+
       updateBoomOptions();
       calculate();
     });
 }
+
 
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
