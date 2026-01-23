@@ -168,11 +168,11 @@ function applyInputLocking(mode) {
   boomRequest.disabled = !boomMode;
   boomSelect.disabled  = !boomMode;
 
-  loadInput.disabled       = boomMode;
-  radiusInput.disabled     = boomMode;
-  obsRadiusInput.disabled  = boomMode;
-  obsHeightInput.disabled  = boomMode;
-  marginInput.disabled     = boomMode;
+  loadInput.disabled      = boomMode;
+  radiusInput.disabled    = boomMode;
+  obsRadiusInput.disabled = boomMode;
+  obsHeightInput.disabled = boomMode;
+  marginInput.disabled    = boomMode;
 
   altToggleLabel.style.display = boomMode ? "none" : "block";
   if (boomMode) showAltInput.checked = false;
@@ -305,12 +305,16 @@ function calculate() {
   result.innerHTML = html;
 }
 
-[ballast, boomRequest, boomSelect, loadInput, radiusInput,
+/* ===== EVENT WIRING (FIXED) ===== */
+[ballast, boomRequest, loadInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput, showAltInput]
 .forEach(e => e.addEventListener("input", () => {
   updateBoomOptions();
   calculate();
 }));
+
+// 🔑 This line fixes the issue
+boomSelect.addEventListener("change", calculate);
 
 document.querySelectorAll('input[name="mode"]')
   .forEach(r => r.addEventListener("change", calculate));
