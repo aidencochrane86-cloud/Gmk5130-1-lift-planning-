@@ -99,9 +99,9 @@ th { background:#f0f0f0; }
 
 <label>Ballast</label>
 <select id="ballast">
-  <option value="40_1t">40.1 t</option>
-  <option value="23_5t">23.5 t</option>
-  <option value="6t">6 t</option>
+  <option value="40_1t" data-code="2200">40.1 t</option>
+  <option value="23_5t" data-code="1900">23.5 t</option>
+  <option value="6t" data-code="1200">6 t</option>
 </select>
 
 <label>Requested boom length (m)</label>
@@ -185,13 +185,12 @@ function loadData(key) {
       DATA = d.charts;
       META = d.meta || {};
       metaBallast.innerHTML =
-        "<strong>Ballast:</strong> " + key.replace("_"," ");
+        "<strong>Ballast:</strong> " + ballast.selectedOptions[0].text;
       updateBoomOptions();
       calculate();
     });
 }
 
-/* 🔑 FIX — auto-select first valid boom */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!boomRequest.value) return;
@@ -313,7 +312,6 @@ function calculate() {
 
 /* ===== EVENT WIRING ===== */
 
-// Normal input changes
 [boomRequest, loadInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput, showAltInput]
 .forEach(e => e.addEventListener("input", () => {
@@ -321,7 +319,6 @@ function calculate() {
   calculate();
 }));
 
-// 🔑 Ballast change MUST reset boom selection
 ballast.addEventListener("change", () => {
   boomSelect.innerHTML = "";
   boomSelect.value = "";
@@ -329,10 +326,8 @@ ballast.addEventListener("change", () => {
   loadData(ballast.value);
 });
 
-// Boom dropdown change
 boomSelect.addEventListener("change", calculate);
 
-// Mode change
 document.querySelectorAll('input[name="mode"]')
   .forEach(r => r.addEventListener("change", calculate));
 
