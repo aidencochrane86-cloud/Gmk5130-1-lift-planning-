@@ -190,6 +190,7 @@ function loadData(key) {
     });
 }
 
+/* 🔑 FIX #1 — auto-select first valid boom */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!boomRequest.value) return;
@@ -205,6 +206,10 @@ function updateBoomOptions() {
       boomSelect.appendChild(o);
     }
   });
+
+  if (boomSelect.options.length > 0) {
+    boomSelect.selectedIndex = 0;
+  }
 }
 
 function calculate() {
@@ -305,7 +310,7 @@ function calculate() {
   result.innerHTML = html;
 }
 
-/* ===== EVENT WIRING (FIXED) ===== */
+/* 🔑 FIX #2 — correct event wiring */
 [ballast, boomRequest, loadInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput, showAltInput]
 .forEach(e => e.addEventListener("input", () => {
@@ -313,7 +318,6 @@ function calculate() {
   calculate();
 }));
 
-// 🔑 This line fixes the issue
 boomSelect.addEventListener("change", calculate);
 
 document.querySelectorAll('input[name="mode"]')
