@@ -184,13 +184,14 @@ function loadData(key) {
     .then(d => {
       DATA = d.charts;
       META = d.meta || {};
-      metaBallast.innerHTML = "<strong>Ballast:</strong> " + key.replace("_"," ");
+      metaBallast.innerHTML =
+        "<strong>Ballast:</strong> " + key.replace("_"," ");
       updateBoomOptions();
       calculate();
     });
 }
 
-/* 🔑 FIX #1 — auto-select first valid boom */
+/* 🔑 FIX — auto-select first valid boom */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!boomRequest.value) return;
@@ -310,16 +311,28 @@ function calculate() {
   result.innerHTML = html;
 }
 
-/* 🔑 FIX #2 — correct event wiring */
-[ballast, boomRequest, loadInput, radiusInput,
+/* ===== EVENT WIRING ===== */
+
+// Normal input changes
+[boomRequest, loadInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput, showAltInput]
 .forEach(e => e.addEventListener("input", () => {
   updateBoomOptions();
   calculate();
 }));
 
+// 🔑 Ballast change MUST reset boom selection
+ballast.addEventListener("change", () => {
+  boomSelect.innerHTML = "";
+  boomSelect.value = "";
+  result.innerHTML = "Select a boom length.";
+  loadData(ballast.value);
+});
+
+// Boom dropdown change
 boomSelect.addEventListener("change", calculate);
 
+// Mode change
 document.querySelectorAll('input[name="mode"]')
   .forEach(r => r.addEventListener("change", calculate));
 
