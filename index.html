@@ -182,13 +182,8 @@ function loadData(key) {
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
-      let header = `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}`;
-
-if (META && META.outriggers) {
-  header += `<br><strong>Outriggers:</strong> ${META.outriggers}`;
-}
-
-metaBallast.innerHTML = header;
+      metaBallast.innerHTML =
+  "<strong>Ballast:</strong> " + ballast.selectedOptions[0].text;
 
       updateBoomOptions();
       calculate();
