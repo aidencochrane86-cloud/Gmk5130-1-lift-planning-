@@ -4,7 +4,7 @@
     "ballast": "23.5 t",
     "slew": "360\u00b0",
     "outriggers": "7.80 x 7.50 m",
-    "sli_code": "1900",
+    "sli": "1900",
     "source": "Grove OEM load chart",
     "units": {
       "boom": "m",
