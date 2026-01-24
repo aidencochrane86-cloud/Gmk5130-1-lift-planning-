@@ -15,49 +15,49 @@
   "charts": [
 {
       "boom": 12.9,
-      "radius": 10.0,
+      "radius": 3.0,
       "capacity": 91.5,
       "config": "0,0,0,0,0"
     },
     {
       "boom": 12.9,
-      "radius": 9.0,
+      "radius": 4.0,
       "capacity": 77.5,
       "config": "0,0,0,0,0"
     },
     {
       "boom": 12.9,
-      "radius": 8.0,
+      "radius": 5.0,
       "capacity": 66.5,
       "config": "0,0,0,0,0"
     },
     {
       "boom": 12.9,
-      "radius": 7.0,
+      "radius": 6.0,
       "capacity": 57.5,
       "config": "0,0,0,0,0"
     },
     {
       "boom": 12.9,
-      "radius": 6.0,
+      "radius": 7.0,
       "capacity": 50.5,
       "config": "0,0,0,0,0"
     },
     {
       "boom": 12.9,
-      "radius": 5.0,
+      "radius": 8.0,
       "capacity": 44.5,
       "config": "0,0,0,0,0"
     },
     {
       "boom": 12.9,
-      "radius": 4.0,
+      "radius": 9.0,
       "capacity": 39.0,
       "config": "0,0,0,0,0"
     },
     {
       "boom": 12.9,
-      "radius": 3.0,
+      "radius": 10.0,
       "capacity": 31.5,
       "config": "0,0,0,0,0"
     },
