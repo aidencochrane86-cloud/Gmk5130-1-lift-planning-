@@ -151,7 +151,8 @@ function calculate() {
     return;
   }
 
-  let candidates = DATA.filter(r => r.radius >= radius && r.capacity >= totalLoad)
+  let candidates = DATA
+    .filter(r => r.radius >= radius && r.capacity >= totalLoad)
     .map(r => ({
       boom: r.boom,
       config: r.config,
@@ -162,7 +163,7 @@ function calculate() {
   if (!candidates.length || candidates[0].util >= 90) {
     result.innerHTML = `
       <h3 class="fail">Lift is not possible with the selected ballast</h3>
-      <p>Total lifted load: ${totalLoad.toFixed(2)} t</p>
+      <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
       <p>Utilisation exceeds planning limit (90%).</p>
     `;
     return;
@@ -172,6 +173,7 @@ function calculate() {
 
   result.innerHTML = `
     <h3>Basic Mode Result</h3>
+    <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
     <p><b>Configuration:</b> ${best.config}</p>
     <p><b>Boom length:</b> ${best.boom} m</p>
     <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
