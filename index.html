@@ -222,6 +222,7 @@ function calculate() {
   applyInputLocking(mode);
 
   const ballastText = ballast.selectedOptions[0].text;
+  const radius = +radiusInput.value;
 
   modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Optimised";
   modeBadge.className = "badge " + (mode === "boom" ? "boom" : "optimised");
@@ -256,7 +257,6 @@ function calculate() {
   }
 
   const load = +loadInput.value;
-  const radius = +radiusInput.value;
   const obsR = +obsRadiusInput.value;
   const obsH = +obsHeightInput.value;
   const margin = +marginInput.value || 0;
@@ -272,7 +272,7 @@ function calculate() {
     if (r.radius < radius || r.capacity < load) return;
 
     const horiz = r.boom*r.boom - radius*radius;
-    if (horiz <= 0) return; // ✅ critical NaN guard
+    if (horiz <= 0) return;
 
     const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
     const reqH = (obsH * radius / obsR) + margin;
@@ -282,7 +282,8 @@ function calculate() {
       boom: r.boom,
       capacity: r.capacity,
       config: r.config,
-      util: load / r.capacity * 100
+      util: load / r.capacity * 100,
+      chartRadius: r.radius
     });
   });
 
@@ -300,6 +301,8 @@ function calculate() {
     <p><b>Configuration:</b> ${best.config || "—"}</p>
     <p><b>Boom:</b> ${best.boom} m</p>
     <p><b>Ballast:</b> ${ballastText}</p>
+    <p><b>Requested radius:</b> ${radius.toFixed(2)} m</p>
+    <p><b>Chart radius used:</b> ${best.chartRadius.toFixed(2)} m</p>
     <p><b>Utilisation:</b>
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
@@ -312,6 +315,7 @@ function calculate() {
       <p><b>Configuration:</b> ${alt.config || "—"}</p>
       <p><b>Boom:</b> ${alt.boom} m</p>
       <p><b>Ballast:</b> ${ballastText}</p>
+      <p><b>Chart radius used:</b> ${alt.chartRadius.toFixed(2)} m</p>
       <p><b>Utilisation:</b>
         <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
       </p>
