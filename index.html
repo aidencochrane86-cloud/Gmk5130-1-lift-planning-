@@ -68,15 +68,8 @@ input::placeholder {
 <div class="card">
 <h2>Inputs</h2>
 
-<label>
-  <input type="radio" name="mode" value="optimised" checked>
-  Basic Mode (ballast-constrained)
-</label>
-
-<label>
-  <input type="radio" name="mode" value="boom">
-  Boom-specific (load chart)
-</label>
+<label><input type="radio" name="mode" value="optimised" checked> Basic Mode</label>
+<label><input type="radio" name="mode" value="boom"> Boom-specific</label>
 
 <label>Ballast</label>
 <select id="ballast">
@@ -85,14 +78,11 @@ input::placeholder {
   <option value="6t">6t</option>
 </select>
 
-<label>Requested boom length (m)</label>
-<input id="boomRequest" type="number">
-
-<label>Select available boom length</label>
-<select id="boomSelect"></select>
-
 <label>Load (t)</label>
 <input id="load" type="number">
+
+<label>Block &amp; rigging (t)</label>
+<input id="rigging" type="number" placeholder="optional">
 
 <label>Working Radius (m)</label>
 <input id="radius" type="number">
@@ -114,11 +104,11 @@ input::placeholder {
 
 <script>
 const BOOM_FOOT_HEIGHT = 2.0;
-let DATA = [];
-let META = {};
+let DATA = [], META = {};
 
 const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
+const riggingInput = document.getElementById("rigging");
 const radiusInput = document.getElementById("radius");
 const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
@@ -152,20 +142,27 @@ function loadData(key) {
 
 function calculate() {
   const load = +loadInput.value;
+  const rigging = riggingInput.value ? +riggingInput.value : 0;
+  const totalLoad = load + rigging;
   const radius = +radiusInput.value;
-  if (!load || !radius) return;
 
-  let candidates = DATA.filter(r => r.radius >= radius && r.capacity >= load)
+  if (!load || !radius) {
+    result.innerHTML = "Enter load and radius.";
+    return;
+  }
+
+  let candidates = DATA.filter(r => r.radius >= radius && r.capacity >= totalLoad)
     .map(r => ({
       boom: r.boom,
       config: r.config,
-      util: load / r.capacity * 100
+      util: totalLoad / r.capacity * 100
     }))
     .sort((a,b)=>a.util-b.util);
 
   if (!candidates.length || candidates[0].util >= 90) {
     result.innerHTML = `
-      <h3 class="fail">Lift is not possible with the selected configuration</h3>
+      <h3 class="fail">Lift is not possible with the selected ballast</h3>
+      <p>Total lifted load: ${totalLoad.toFixed(2)} t</p>
       <p>Utilisation exceeds planning limit (90%).</p>
     `;
     return;
@@ -192,7 +189,7 @@ function calculate() {
   `;
 }
 
-[loadInput, radiusInput, obsRadiusInput, obsHeightInput, marginInput]
+[loadInput, riggingInput, radiusInput, obsRadiusInput, obsHeightInput, marginInput]
   .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
