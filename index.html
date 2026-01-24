@@ -5,66 +5,22 @@
 <title>Lift Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background:#f4f6f8;
-  padding:16px;
-}
-.card {
-  background:#fff;
-  padding:16px;
-  margin-bottom:16px;
-  border-radius:8px;
-}
-label {
-  display:block;
-  margin-top:10px;
-  font-weight:bold;
-}
-input[type="number"], select {
-  width:100%;
-  padding:6px;
-  margin-top:4px;
-}
-input:disabled, select:disabled {
-  background:#eee;
-  color:#777;
-  pointer-events:none;
-}
-.meta {
-  font-size:0.9em;
-  background:#eef6ff;
-  padding:8px;
-  border-radius:6px;
-}
-.badge {
-  display:inline-block;
-  margin-top:6px;
-  padding:4px 8px;
-  color:#fff;
-  border-radius:12px;
-  font-size:0.8em;
-}
+body { font-family: Arial, sans-serif; background:#f4f6f8; padding:16px; }
+.card { background:#fff; padding:16px; margin-bottom:16px; border-radius:8px; }
+label { display:block; margin-top:10px; font-weight:bold; }
+input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
+.meta { font-size:0.9em; background:#eef6ff; padding:8px; border-radius:6px; }
+.badge { display:inline-block; padding:4px 8px; color:#fff; border-radius:12px; font-size:0.8em; }
 .badge.optimised { background:#6a1b9a; }
 .badge.boom { background:#555; }
 
-.output-meta {
-  background:#f7f9ff;
-  border:1px solid #ccd5ff;
-  padding:8px;
-  border-radius:6px;
-  margin-bottom:10px;
-  font-size:0.9em;
-}
-
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
-.util-red   { color:#b42318; font-weight:bold; }
+.util-red { color:#b42318; font-weight:bold; }
 
 .risk-low { color:#1a7f37; font-weight:bold; }
 .risk-mid { color:#b26a00; font-weight:bold; }
 .risk-high { color:#b42318; font-weight:bold; }
-
 </style>
 </head>
 
@@ -72,7 +28,6 @@ input:disabled, select:disabled {
 
 <div class="card meta">
   <strong>Crane:</strong> GMK5130-1<br>
-  <strong>Slew:</strong> 360°<br>
   <span id="metaBallast"><strong>Ballast:</strong> —</span><br>
   <span id="modeBadge" class="badge optimised">Mode: AP Mode</span>
 </div>
@@ -80,28 +35,14 @@ input:disabled, select:disabled {
 <div class="card">
 <h2>Inputs</h2>
 
-<label>
-  <input type="radio" name="mode" value="optimised" checked>
-  AP Mode (Auto Planning)
-</label>
-
-<label>
-  <input type="radio" name="mode" value="boom">
-  Boom-specific (load chart)
-</label>
+<label><input type="radio" name="mode" value="ap" checked> AP Mode</label>
+<label><input type="radio" name="mode" value="boom"> Boom-specific</label>
 
 <label>Ballast</label>
 <select id="ballast">
-  <option value="40_1t">40.1t code 2200</option>
-  <option value="23_5t">23.5t code 1900</option>
-  <option value="6t">6t code 1200</option>
+  <option value="40_1t">40.1t</option>
+  <option value="23_5t">23.5t</option>
 </select>
-
-<label>Requested boom length (m)</label>
-<input id="boomRequest" type="number">
-
-<label>Select available boom length</label>
-<select id="boomSelect"></select>
 
 <label>Load (t)</label>
 <input id="load" type="number">
@@ -109,10 +50,9 @@ input:disabled, select:disabled {
 <label>Working Radius (m)</label>
 <input id="radius" type="number">
 
-<!-- === AP MODE ADDITION === -->
 <label>
   <input type="checkbox" id="radiusLocked">
-  Radius is fixed (cannot be changed)
+  Radius is fixed
 </label>
 
 <label>Obstruction Radius (m)</label>
@@ -123,40 +63,29 @@ input:disabled, select:disabled {
 
 <label>Clearance Margin (m)</label>
 <input id="margin" type="number">
-
-<label id="altToggleLabel">
-  <input type="checkbox" id="showAlt">
-  Show alternative configuration
-</label>
 </div>
 
 <div class="card">
 <h2>Result</h2>
-<div id="result">Select inputs.</div>
+<div id="result">Enter inputs.</div>
 </div>
 
 <script>
-const BOOM_FOOT_HEIGHT = 2.0;
 const STANDARD_LIMIT = 85;
 const ABSOLUTE_LIMIT = 90;
+const BOOM_FOOT_HEIGHT = 2.0;
 
 let DATA = [];
-let META = {};
-
 const ballast = document.getElementById("ballast");
-const boomRequest = document.getElementById("boomRequest");
-const boomSelect = document.getElementById("boomSelect");
 const loadInput = document.getElementById("load");
 const radiusInput = document.getElementById("radius");
 const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
-const showAltInput = document.getElementById("showAlt");
 const radiusLockedInput = document.getElementById("radiusLocked");
-const altToggleLabel = document.getElementById("altToggleLabel");
 const result = document.getElementById("result");
-const metaBallast = document.getElementById("metaBallast");
 const modeBadge = document.getElementById("modeBadge");
+const metaBallast = document.getElementById("metaBallast");
 
 function utilClass(u) {
   if (u >= ABSOLUTE_LIMIT) return "util-red";
@@ -171,25 +100,11 @@ function riskLabel(u) {
   return `<span class="risk-low">Risk: LOW</span>`;
 }
 
-function applyInputLocking(mode) {
-  const boomMode = mode === "boom";
-  boomRequest.disabled = !boomMode;
-  boomSelect.disabled  = !boomMode;
-  loadInput.disabled  = boomMode;
-  radiusInput.disabled = boomMode;
-  obsRadiusInput.disabled = boomMode;
-  obsHeightInput.disabled = boomMode;
-  marginInput.disabled = boomMode;
-  radiusLockedInput.disabled = boomMode;
-  altToggleLabel.style.display = boomMode ? "none" : "block";
-}
-
 function loadData(key) {
   fetch(`loadchart_${key}.json`)
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
-      META = d.meta || {};
       metaBallast.innerHTML = `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}`;
       calculate();
     });
@@ -197,13 +112,11 @@ function loadData(key) {
 
 function calculate() {
   const mode = document.querySelector('input[name="mode"]:checked').value;
-  applyInputLocking(mode);
-
   modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: AP Mode";
   modeBadge.className = "badge " + (mode === "boom" ? "boom" : "optimised");
 
   if (mode === "boom") {
-    result.innerHTML = "Boom chart mode active.";
+    result.innerHTML = "Boom-specific mode active.";
     return;
   }
 
@@ -212,6 +125,7 @@ function calculate() {
   const obsR = +obsRadiusInput.value;
   const obsH = +obsHeightInput.value;
   const margin = +marginInput.value || 0;
+  const radiusLocked = radiusLockedInput.checked;
 
   if (!load || !radius || !obsR || !obsH) {
     result.innerHTML = "Enter all required inputs.";
@@ -221,15 +135,23 @@ function calculate() {
   let candidates = [];
 
   DATA.forEach(r => {
-    if (r.radius < radius || r.capacity < load) return;
-    const horiz = r.boom*r.boom - radius*radius;
+    if (radiusLocked) {
+      if (r.radius !== radius) return;
+    } else {
+      if (r.radius < radius) return;
+    }
+
+    if (r.capacity < load) return;
+
+    const horiz = r.boom * r.boom - radius * radius;
     if (horiz <= 0) return;
+
     const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
     const reqH = (obsH * radius / obsR) + margin;
     if (tip < reqH) return;
 
     const util = load / r.capacity * 100;
-    candidates.push({...r, util});
+    candidates.push({ ...r, util });
   });
 
   if (!candidates.length) {
@@ -237,12 +159,17 @@ function calculate() {
     return;
   }
 
-  candidates.sort((a,b)=>a.util-b.util);
-  const best = candidates[0];
+  let best;
+  if (radiusLocked) {
+    best = candidates.sort((a,b)=>a.capacity - b.capacity)[0];
+  } else {
+    best = candidates.sort((a,b)=>a.util - b.util)[0];
+  }
 
   let html = `
-    <h3>AP Mode Result</h3>
-    <p><b>Utilisation:</b> <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span></p>
+    <p><b>Utilisation:</b>
+      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+    </p>
     <p>${riskLabel(best.util)}</p>
   `;
 
@@ -290,9 +217,9 @@ function calculate() {
 }
 
 [
-  boomRequest, loadInput, radiusInput,
+  loadInput, radiusInput,
   obsRadiusInput, obsHeightInput,
-  marginInput, showAltInput, radiusLockedInput
+  marginInput, radiusLockedInput
 ].forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
