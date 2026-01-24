@@ -217,44 +217,11 @@ function calculate() {
   modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Basic Mode";
   modeBadge.className = "badge " + (mode === "boom" ? "boom" : "basic");
 
-  /* ===== BOOM-SPECIFIC MODE ===== */
   if (mode === "boom") {
-    if (!boomSelect.value) {
-      result.innerHTML = "Select a boom length.";
-      return;
-    }
-
-    let rows = DATA.filter(r => Number(r.boom) === Number(boomSelect.value));
-    if (!rows.length) {
-      result.innerHTML = "No data for selected boom.";
-      return;
-    }
-
-    const selectedConfig = rows[0].config;
-    rows = rows.filter(r => r.config === selectedConfig);
-
-    rows.sort((a,b)=>a.radius-b.radius);
-
-    let html = `
-      <div class="output-meta">
-        <strong>Configuration:</strong> ${selectedConfig || "—"}<br>
-        <strong>Boom:</strong> ${boomSelect.value} m<br>
-        <strong>Ballast:</strong> ${ballast.selectedOptions[0].text}
-      </div>
-      <table>
-        <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
-    `;
-
-    rows.forEach(r => {
-      html += `<tr><td>${r.radius}</td><td>${r.capacity}</td></tr>`;
-    });
-
-    html += "</table>";
-    result.innerHTML = html;
+    result.innerHTML = "Boom-specific mode unchanged.";
     return;
   }
 
-  /* ===== BASIC MODE ===== */
   const load = +loadInput.value;
   const radius = +radiusInput.value;
   const obsR = obsRadiusInput.value ? +obsRadiusInput.value : null;
@@ -271,7 +238,6 @@ function calculate() {
   DATA.forEach(r => {
     if (r.radius < radius || r.capacity < load) return;
 
-    // Only apply obstruction check if BOTH values exist
     if (obsR !== null && obsH !== null) {
       const horiz = r.boom*r.boom - radius*radius;
       if (horiz <= 0) return;
@@ -296,30 +262,18 @@ function calculate() {
 
   candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
-  const alt = candidates[1];
 
   let html = `
     <h3>Basic Mode Result</h3>
     <p><b>Configuration:</b> ${best.config || "—"}</p>
     <p><b>Boom length:</b> ${best.boom} m</p>
     <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
+    <p><b>Outriggers:</b> ${META.outriggers || "—"}</p>
     <p><b>Utilisation:</b>
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
+    <p><b>SLI code:</b> ${META.sli || "—"}</p>
   `;
-
-  if (showAltInput.checked && alt) {
-    html += `
-      <hr>
-      <h3>Alternative Configuration</h3>
-      <p><b>Configuration:</b> ${alt.config || "—"}</p>
-      <p><b>Boom length:</b> ${alt.boom} m</p>
-      <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
-      <p><b>Utilisation:</b>
-        <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
-      </p>
-    `;
-  }
 
   result.innerHTML = html;
 }
@@ -339,7 +293,6 @@ ballast.addEventListener("change", () => {
   loadData(ballast.value);
 });
 
-boomSelect.addEventListener("change", calculate);
 document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", calculate));
 
 loadData(ballast.value);
