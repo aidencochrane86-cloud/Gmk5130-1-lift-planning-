@@ -272,7 +272,7 @@ function calculate() {
     if (r.radius < radius || r.capacity < load) return;
 
     const horiz = r.boom*r.boom - radius*radius;
-    if (horiz <= 0) return; // ✅ critical NaN guard
+    if (horiz <= 0) return;
 
     const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
     const reqH = (obsH * radius / obsR) + margin;
@@ -344,4 +344,3 @@ loadData(ballast.value);
 
 </body>
 </html>
-
