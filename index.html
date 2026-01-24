@@ -196,6 +196,7 @@ function loadData(key) {
     });
 }
 
+/* ===== FIXED FUNCTION ===== */
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!boomRequest.value) return;
@@ -206,7 +207,8 @@ function updateBoomOptions() {
     .sort((a,b)=>a-b);
 
   booms.forEach(b => {
-    if (Math.abs(b - req) <= 3) {
+    // ✅ FIX: only allow booms >= requested
+    if (b >= req) {
       const o = document.createElement("option");
       o.value = b;
       o.textContent = `${b} m`;
@@ -222,7 +224,6 @@ function calculate() {
   applyInputLocking(mode);
 
   const ballastText = ballast.selectedOptions[0].text;
-  const radius = +radiusInput.value;
 
   modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Optimised";
   modeBadge.className = "badge " + (mode === "boom" ? "boom" : "optimised");
@@ -256,7 +257,9 @@ function calculate() {
     return;
   }
 
+  /* Optimised mode unchanged */
   const load = +loadInput.value;
+  const radius = +radiusInput.value;
   const obsR = +obsRadiusInput.value;
   const obsH = +obsHeightInput.value;
   const margin = +marginInput.value || 0;
@@ -294,9 +297,8 @@ function calculate() {
 
   candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
-  const alt = candidates[1];
 
-  let html = `
+  result.innerHTML = `
     <h3>Best (Safest) Configuration</h3>
     <p><b>Configuration:</b> ${best.config || "—"}</p>
     <p><b>Boom:</b> ${best.boom} m</p>
@@ -307,22 +309,6 @@ function calculate() {
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
   `;
-
-  if (showAltInput.checked && alt) {
-    html += `
-      <hr>
-      <h3>Alternative Configuration</h3>
-      <p><b>Configuration:</b> ${alt.config || "—"}</p>
-      <p><b>Boom:</b> ${alt.boom} m</p>
-      <p><b>Ballast:</b> ${ballastText}</p>
-      <p><b>Chart radius used:</b> ${alt.chartRadius.toFixed(2)} m</p>
-      <p><b>Utilisation:</b>
-        <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
-      </p>
-    `;
-  }
-
-  result.innerHTML = html;
 }
 
 [boomRequest, loadInput, radiusInput,
