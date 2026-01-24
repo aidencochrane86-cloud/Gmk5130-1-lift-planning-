@@ -151,16 +151,36 @@ function calculate() {
     return;
   }
 
-  /* ===== FIXED LOGIC ===== */
-  let candidates = DATA
-    .filter(r => r.radius >= radius)
-    .map(r => ({
+  let candidates = [];
+
+  DATA.forEach(r => {
+    if (r.radius < radius) return;
+    if (r.capacity < totalLoad) return;
+
+    /* ================================
+       ✅ GEOMETRY + OBSTRUCTION FIX
+       ================================ */
+    if (obsRadiusInput.value && obsHeightInput.value) {
+      const obsR = +obsRadiusInput.value;
+      const obsH = +obsHeightInput.value;
+      const margin = +marginInput.value || 0;
+
+      const horiz = r.boom * r.boom - radius * radius;
+      if (horiz <= 0) return;
+
+      const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
+      const reqH = (obsH * radius / obsR) + margin;
+
+      if (tip < reqH) return; // ❌ fails clearance
+    }
+    /* ================================ */
+
+    candidates.push({
       boom: r.boom,
       config: r.config,
-      capacity: r.capacity,
       util: totalLoad / r.capacity * 100
-    }))
-    .sort((a,b)=>a.util-b.util);
+    });
+  });
 
   if (!candidates.length || candidates[0].util >= 90) {
     result.innerHTML = `
@@ -171,6 +191,7 @@ function calculate() {
     return;
   }
 
+  candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
 
   result.innerHTML = `
@@ -186,7 +207,7 @@ function calculate() {
     ${isAmber(best.util) ? `
       <p class="advice">
         <b>Risk note:</b> Utilisation is within amber range.<br>
-        Reduced capacity margin — verify lift conditions and tolerances.
+        Reduced capacity margin — verify lift conditions.
       </p>
     ` : ``}
     <p><b>SLI code:</b> ${META.sli || "—"}</p>
