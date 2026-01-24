@@ -217,6 +217,7 @@ function calculate() {
   modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Basic Mode";
   modeBadge.className = "badge " + (mode === "boom" ? "boom" : "basic");
 
+  /* ===== BOOM-SPECIFIC MODE ===== */
   if (mode === "boom") {
     if (!boomSelect.value) {
       result.innerHTML = "Select a boom length.";
@@ -236,8 +237,8 @@ function calculate() {
 
     let html = `
       <div class="output-meta">
-        <strong>Boom:</strong> ${boomSelect.value} m<br>
         <strong>Configuration:</strong> ${selectedConfig || "—"}<br>
+        <strong>Boom:</strong> ${boomSelect.value} m<br>
         <strong>Ballast:</strong> ${ballast.selectedOptions[0].text}
       </div>
       <table>
@@ -253,13 +254,77 @@ function calculate() {
     return;
   }
 
-  result.innerHTML = "Basic Mode calculation unchanged.";
+  /* ===== BASIC MODE (ORIGINAL OPTIMISED LOGIC) ===== */
+  const load = +loadInput.value;
+  const radius = +radiusInput.value;
+  const obsR = +obsRadiusInput.value;
+  const obsH = +obsHeightInput.value;
+  const margin = +marginInput.value || 0;
+
+  if (!load || !radius || !obsR || !obsH) {
+    result.innerHTML = "Enter all required inputs.";
+    return;
+  }
+
+  let candidates = [];
+
+  DATA.forEach(r => {
+    if (r.radius < radius || r.capacity < load) return;
+
+    const horiz = r.boom*r.boom - radius*radius;
+    if (horiz <= 0) return;
+
+    const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
+    const reqH = (obsH * radius / obsR) + margin;
+    if (tip < reqH) return;
+
+    candidates.push({
+      boom: r.boom,
+      capacity: r.capacity,
+      config: r.config,
+      util: load / r.capacity * 100
+    });
+  });
+
+  if (!candidates.length) {
+    result.innerHTML = "No valid configuration.";
+    return;
+  }
+
+  candidates.sort((a,b)=>a.util-b.util);
+  const best = candidates[0];
+  const alt = candidates[1];
+
+  let html = `
+    <h3>Basic Mode Result</h3>
+    <p><b>Configuration:</b> ${best.config || "—"}</p>
+    <p><b>Boom length:</b> ${best.boom} m</p>
+    <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
+    <p><b>Utilisation:</b>
+      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+    </p>
+  `;
+
+  if (showAltInput.checked && alt) {
+    html += `
+      <hr>
+      <h3>Alternative Configuration</h3>
+      <p><b>Configuration:</b> ${alt.config || "—"}</p>
+      <p><b>Boom length:</b> ${alt.boom} m</p>
+      <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
+      <p><b>Utilisation:</b>
+        <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
+      </p>
+    `;
+  }
+
+  result.innerHTML = html;
 }
 
 [
   boomRequest, loadInput, radiusInput,
   obsRadiusInput, obsHeightInput,
-  marginInput
+  marginInput, showAltInput
 ].forEach(e => e.addEventListener("input", () => {
   updateBoomOptions();
   calculate();
