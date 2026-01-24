@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Lift Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -25,10 +26,6 @@ input[type="number"], select {
   width:100%;
   padding:6px;
   margin-top:4px;
-}
-input::placeholder {
-  color:#999;
-  font-style:italic;
 }
 input:disabled, select:disabled {
   background:#eee;
@@ -60,6 +57,7 @@ input:disabled, select:disabled {
   margin-bottom:10px;
   font-size:0.9em;
 }
+
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red   { color:#b42318; font-weight:bold; }
@@ -94,7 +92,6 @@ th { background:#f0f0f0; }
   <input type="radio" name="mode" value="optimised" checked>
   Optimised (best configuration)
 </label>
-
 <label>
   <input type="radio" name="mode" value="boom">
   Boom-specific (load chart)
@@ -113,21 +110,20 @@ th { background:#f0f0f0; }
 <label>Select available boom length</label>
 <select id="boomSelect"></select>
 
-<!-- OPTIONAL INPUTS -->
 <label>Load (t)</label>
-<input id="load" type="number" placeholder="optional">
+<input id="load" type="number">
 
 <label>Working Radius (m)</label>
-<input id="radius" type="number" placeholder="optional">
+<input id="radius" type="number">
 
 <label>Obstruction Radius (m)</label>
-<input id="obsRadius" type="number" placeholder="optional">
+<input id="obsRadius" type="number">
 
 <label>Obstruction Height (m)</label>
-<input id="obsHeight" type="number" placeholder="optional">
+<input id="obsHeight" type="number">
 
 <label>Clearance Margin (m)</label>
-<input id="margin" type="number" placeholder="optional">
+<input id="margin" type="number">
 
 <label id="altToggleLabel">
   <input type="checkbox" id="showAlt">
@@ -142,6 +138,7 @@ th { background:#f0f0f0; }
 
 <script>
 const BOOM_FOOT_HEIGHT = 2.0;
+
 let DATA = [];
 let META = {};
 
@@ -167,15 +164,15 @@ function utilClass(u) {
 
 function applyInputLocking(mode) {
   const boomMode = mode === "boom";
+
   boomRequest.disabled = !boomMode;
   boomSelect.disabled  = !boomMode;
 
-  // Optional inputs are always enabled
-  loadInput.disabled = false;
-  radiusInput.disabled = false;
-  obsRadiusInput.disabled = false;
-  obsHeightInput.disabled = false;
-  marginInput.disabled = false;
+  loadInput.disabled      = boomMode;
+  radiusInput.disabled    = boomMode;
+  obsRadiusInput.disabled = boomMode;
+  obsHeightInput.disabled = boomMode;
+  marginInput.disabled    = boomMode;
 
   altToggleLabel.style.display = boomMode ? "none" : "block";
   if (boomMode) showAltInput.checked = false;
@@ -189,12 +186,9 @@ function loadData(key) {
       META = d.meta || {};
 
       let header = `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}`;
-      if (META.outriggers) {
-        header += `<br><strong>Outriggers:</strong> ${META.outriggers}`;
-      }
-      if (META.sli) {
-        header += `<br><strong>SLI:</strong> ${META.sli}`;
-      }
+      if (META.outriggers) header += `<br><strong>Outriggers:</strong> ${META.outriggers}`;
+      if (META.sli) header += `<br><strong>SLI:</strong> ${META.sli}`;
+
       metaBallast.innerHTML = header;
 
       updateBoomOptions();
@@ -205,6 +199,7 @@ function loadData(key) {
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!boomRequest.value) return;
+
   const req = +boomRequest.value;
   const booms = [...new Set(DATA.map(r => Number(r.boom)))]
     .filter(b => !isNaN(b))
@@ -226,6 +221,8 @@ function calculate() {
   const mode = document.querySelector('input[name="mode"]:checked').value;
   applyInputLocking(mode);
 
+  const ballastText = ballast.selectedOptions[0].text;
+
   modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Optimised";
   modeBadge.className = "badge " + (mode === "boom" ? "boom" : "optimised");
 
@@ -235,33 +232,15 @@ function calculate() {
       return;
     }
 
-    const load = loadInput.value ? +loadInput.value : null;
-    const radius = radiusInput.value ? +radiusInput.value : null;
-    const obsR = obsRadiusInput.value ? +obsRadiusInput.value : null;
-    const obsH = obsHeightInput.value ? +obsHeightInput.value : null;
-    const margin = marginInput.value ? +marginInput.value : 0;
-
-    let rows = DATA.filter(r => Number(r.boom) === Number(boomSelect.value));
-
-    if (radius !== null) rows = rows.filter(r => r.radius >= radius);
-    if (load !== null) rows = rows.filter(r => r.capacity >= load);
-
-    if (obsR !== null && obsH !== null) {
-      rows = rows.filter(r => {
-        const horiz = r.boom*r.boom - r.radius*r.radius;
-        if (horiz <= 0) return false;
-        const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
-        const reqH = (obsH * r.radius / obsR) + margin;
-        return tip >= reqH;
-      });
-    }
-
-    rows.sort((a,b)=>a.radius-b.radius);
+    const rows = DATA
+      .filter(r => Number(r.boom) === Number(boomSelect.value))
+      .sort((a,b)=>a.radius-b.radius);
 
     let html = `
       <div class="output-meta">
         <strong>Boom:</strong> ${boomSelect.value} m<br>
-        <strong>Ballast:</strong> ${ballast.selectedOptions[0].text}
+        <strong>Configuration:</strong> ${rows[0].config || "—"}<br>
+        <strong>Ballast:</strong> ${ballastText}
       </div>
       <table>
         <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
@@ -276,14 +255,75 @@ function calculate() {
     return;
   }
 
-  result.innerHTML = "Optimised mode unchanged.";
+  const load = +loadInput.value;
+  const radius = +radiusInput.value;
+  const obsR = +obsRadiusInput.value;
+  const obsH = +obsHeightInput.value;
+  const margin = +marginInput.value || 0;
+
+  if (!load || !radius || !obsR || !obsH) {
+    result.innerHTML = "Enter all required inputs.";
+    return;
+  }
+
+  let candidates = [];
+
+  DATA.forEach(r => {
+    if (r.radius < radius || r.capacity < load) return;
+
+    const horiz = r.boom*r.boom - radius*radius;
+    if (horiz <= 0) return; // ✅ critical NaN guard
+
+    const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
+    const reqH = (obsH * radius / obsR) + margin;
+    if (tip < reqH) return;
+
+    candidates.push({
+      boom: r.boom,
+      capacity: r.capacity,
+      config: r.config,
+      util: load / r.capacity * 100
+    });
+  });
+
+  if (!candidates.length) {
+    result.innerHTML = "No valid configuration.";
+    return;
+  }
+
+  candidates.sort((a,b)=>a.util-b.util);
+  const best = candidates[0];
+  const alt = candidates[1];
+
+  let html = `
+    <h3>Best (Safest) Configuration</h3>
+    <p><b>Configuration:</b> ${best.config || "—"}</p>
+    <p><b>Boom:</b> ${best.boom} m</p>
+    <p><b>Ballast:</b> ${ballastText}</p>
+    <p><b>Utilisation:</b>
+      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+    </p>
+  `;
+
+  if (showAltInput.checked && alt) {
+    html += `
+      <hr>
+      <h3>Alternative Configuration</h3>
+      <p><b>Configuration:</b> ${alt.config || "—"}</p>
+      <p><b>Boom:</b> ${alt.boom} m</p>
+      <p><b>Ballast:</b> ${ballastText}</p>
+      <p><b>Utilisation:</b>
+        <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
+      </p>
+    `;
+  }
+
+  result.innerHTML = html;
 }
 
-[
-  boomRequest, loadInput, radiusInput,
-  obsRadiusInput, obsHeightInput,
-  marginInput
-].forEach(e => e.addEventListener("input", () => {
+[boomRequest, loadInput, radiusInput,
+ obsRadiusInput, obsHeightInput, marginInput, showAltInput]
+.forEach(e => e.addEventListener("input", () => {
   updateBoomOptions();
   calculate();
 }));
@@ -295,7 +335,9 @@ ballast.addEventListener("change", () => {
 });
 
 boomSelect.addEventListener("change", calculate);
-document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", calculate));
+
+document.querySelectorAll('input[name="mode"]')
+  .forEach(r => r.addEventListener("change", calculate));
 
 loadData(ballast.value);
 </script>
