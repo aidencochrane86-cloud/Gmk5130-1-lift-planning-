@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Lift Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -46,7 +45,7 @@ input:disabled, select:disabled {
   border-radius:12px;
   font-size:0.8em;
 }
-.badge.optimised { background:#0066cc; }
+.badge.optimised { background:#6a1b9a; }
 .badge.boom { background:#555; }
 
 .output-meta {
@@ -62,17 +61,10 @@ input:disabled, select:disabled {
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red   { color:#b42318; font-weight:bold; }
 
-table {
-  width:100%;
-  border-collapse:collapse;
-  margin-top:12px;
-}
-th, td {
-  border:1px solid #ccc;
-  padding:6px;
-  text-align:center;
-}
-th { background:#f0f0f0; }
+.risk-low { color:#1a7f37; font-weight:bold; }
+.risk-mid { color:#b26a00; font-weight:bold; }
+.risk-high { color:#b42318; font-weight:bold; }
+
 </style>
 </head>
 
@@ -82,7 +74,7 @@ th { background:#f0f0f0; }
   <strong>Crane:</strong> GMK5130-1<br>
   <strong>Slew:</strong> 360°<br>
   <span id="metaBallast"><strong>Ballast:</strong> —</span><br>
-  <span id="modeBadge" class="badge optimised">Mode: Optimised</span>
+  <span id="modeBadge" class="badge optimised">Mode: AP Mode</span>
 </div>
 
 <div class="card">
@@ -90,8 +82,9 @@ th { background:#f0f0f0; }
 
 <label>
   <input type="radio" name="mode" value="optimised" checked>
-  Optimised (best configuration)
+  AP Mode (Auto Planning)
 </label>
+
 <label>
   <input type="radio" name="mode" value="boom">
   Boom-specific (load chart)
@@ -116,6 +109,12 @@ th { background:#f0f0f0; }
 <label>Working Radius (m)</label>
 <input id="radius" type="number">
 
+<!-- === AP MODE ADDITION === -->
+<label>
+  <input type="checkbox" id="radiusLocked">
+  Radius is fixed (cannot be changed)
+</label>
+
 <label>Obstruction Radius (m)</label>
 <input id="obsRadius" type="number">
 
@@ -138,6 +137,8 @@ th { background:#f0f0f0; }
 
 <script>
 const BOOM_FOOT_HEIGHT = 2.0;
+const STANDARD_LIMIT = 85;
+const ABSOLUTE_LIMIT = 90;
 
 let DATA = [];
 let META = {};
@@ -151,31 +152,36 @@ const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
 const showAltInput = document.getElementById("showAlt");
+const radiusLockedInput = document.getElementById("radiusLocked");
 const altToggleLabel = document.getElementById("altToggleLabel");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
 const modeBadge = document.getElementById("modeBadge");
 
 function utilClass(u) {
-  if (u >= 90) return "util-red";
-  if (u >= 85) return "util-amber";
+  if (u >= ABSOLUTE_LIMIT) return "util-red";
+  if (u > STANDARD_LIMIT) return "util-amber";
   return "util-green";
+}
+
+function riskLabel(u) {
+  if (u >= ABSOLUTE_LIMIT) return `<span class="risk-high">Risk: NOT PERMITTED</span>`;
+  if (u > STANDARD_LIMIT) return `<span class="risk-high">Risk: HIGH</span>`;
+  if (u > 75) return `<span class="risk-mid">Risk: MODERATE</span>`;
+  return `<span class="risk-low">Risk: LOW</span>`;
 }
 
 function applyInputLocking(mode) {
   const boomMode = mode === "boom";
-
   boomRequest.disabled = !boomMode;
   boomSelect.disabled  = !boomMode;
-
-  loadInput.disabled      = boomMode;
-  radiusInput.disabled    = boomMode;
+  loadInput.disabled  = boomMode;
+  radiusInput.disabled = boomMode;
   obsRadiusInput.disabled = boomMode;
   obsHeightInput.disabled = boomMode;
-  marginInput.disabled    = boomMode;
-
+  marginInput.disabled = boomMode;
+  radiusLockedInput.disabled = boomMode;
   altToggleLabel.style.display = boomMode ? "none" : "block";
-  if (boomMode) showAltInput.checked = false;
 }
 
 function loadData(key) {
@@ -184,74 +190,20 @@ function loadData(key) {
     .then(d => {
       DATA = d.charts;
       META = d.meta || {};
-
-      let header = `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}`;
-      if (META.outriggers) header += `<br><strong>Outriggers:</strong> ${META.outriggers}`;
-      if (META.sli) header += `<br><strong>SLI:</strong> ${META.sli}`;
-
-      metaBallast.innerHTML = header;
-
-      updateBoomOptions();
+      metaBallast.innerHTML = `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}`;
       calculate();
     });
-}
-
-function updateBoomOptions() {
-  boomSelect.innerHTML = "";
-  if (!boomRequest.value) return;
-
-  const req = +boomRequest.value;
-  const booms = [...new Set(DATA.map(r => Number(r.boom)))]
-    .filter(b => !isNaN(b))
-    .sort((a,b)=>a-b);
-
-  booms.forEach(b => {
-    if (Math.abs(b - req) <= 3) {
-      const o = document.createElement("option");
-      o.value = b;
-      o.textContent = `${b} m`;
-      boomSelect.appendChild(o);
-    }
-  });
-
-  if (boomSelect.options.length > 0) boomSelect.selectedIndex = 0;
 }
 
 function calculate() {
   const mode = document.querySelector('input[name="mode"]:checked').value;
   applyInputLocking(mode);
 
-  const ballastText = ballast.selectedOptions[0].text;
-
-  modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Optimised";
+  modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: AP Mode";
   modeBadge.className = "badge " + (mode === "boom" ? "boom" : "optimised");
 
   if (mode === "boom") {
-    if (!boomSelect.value) {
-      result.innerHTML = "Select a boom length.";
-      return;
-    }
-
-    const rows = DATA
-      .filter(r => Number(r.boom) === Number(boomSelect.value))
-      .sort((a,b)=>a.radius-b.radius);
-
-    let html = `
-      <div class="output-meta">
-        <strong>Boom:</strong> ${boomSelect.value} m<br>
-        <strong>Configuration:</strong> ${rows[0].config || "—"}<br>
-        <strong>Ballast:</strong> ${ballastText}
-      </div>
-      <table>
-        <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
-    `;
-
-    rows.forEach(r => {
-      html += `<tr><td>${r.radius}</td><td>${r.capacity}</td></tr>`;
-    });
-
-    html += "</table>";
-    result.innerHTML = html;
+    result.innerHTML = "Boom chart mode active.";
     return;
   }
 
@@ -270,74 +222,81 @@ function calculate() {
 
   DATA.forEach(r => {
     if (r.radius < radius || r.capacity < load) return;
-
     const horiz = r.boom*r.boom - radius*radius;
-    if (horiz <= 0) return; // ✅ critical NaN guard
-
+    if (horiz <= 0) return;
     const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
     const reqH = (obsH * radius / obsR) + margin;
     if (tip < reqH) return;
 
-    candidates.push({
-      boom: r.boom,
-      capacity: r.capacity,
-      config: r.config,
-      util: load / r.capacity * 100
-    });
+    const util = load / r.capacity * 100;
+    candidates.push({...r, util});
   });
 
   if (!candidates.length) {
-    result.innerHTML = "No valid configuration.";
+    result.innerHTML = "❌ Rejected: Rated capacity exceeded at this radius.";
     return;
   }
 
   candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
-  const alt = candidates[1];
 
   let html = `
-    <h3>Best (Safest) Configuration</h3>
-    <p><b>Configuration:</b> ${best.config || "—"}</p>
-    <p><b>Boom:</b> ${best.boom} m</p>
-    <p><b>Ballast:</b> ${ballastText}</p>
-    <p><b>Utilisation:</b>
-      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
-    </p>
+    <h3>AP Mode Result</h3>
+    <p><b>Utilisation:</b> <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span></p>
+    <p>${riskLabel(best.util)}</p>
   `;
 
-  if (showAltInput.checked && alt) {
-    html += `
-      <hr>
-      <h3>Alternative Configuration</h3>
-      <p><b>Configuration:</b> ${alt.config || "—"}</p>
-      <p><b>Boom:</b> ${alt.boom} m</p>
-      <p><b>Ballast:</b> ${ballastText}</p>
-      <p><b>Utilisation:</b>
-        <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
-      </p>
-    `;
+  if (best.util >= ABSOLUTE_LIMIT) {
+    html += `<p>❌ Rejected: Utilisation exceeds absolute system limit.</p>`;
+    result.innerHTML = html;
+    return;
   }
+
+  if (best.util > STANDARD_LIMIT) {
+    html += `
+      <p>❌ Rejected: Utilisation exceeds standard planning limit.</p>
+      <label>
+        <input type="checkbox" id="utilOverride">
+        Allow lift below 90% utilisation (engineering approval)
+      </label>
+    `;
+    result.innerHTML = html;
+
+    setTimeout(() => {
+      const chk = document.getElementById("utilOverride");
+      chk.addEventListener("change", () => {
+        if (chk.checked) {
+          result.innerHTML = html + `
+            <hr>
+            <p>✅ Lift allowed under elevated utilisation policy</p>
+            <p><b>Configuration:</b> ${best.config || "—"}</p>
+            <p><b>Boom:</b> ${best.boom} m</p>
+            <p><b>Utilisation:</b> ${best.util.toFixed(1)}%</p>
+            <p>${riskLabel(best.util)}</p>
+          `;
+        }
+      });
+    }, 0);
+    return;
+  }
+
+  html += `
+    <p>✅ Lift permitted within standard limits</p>
+    <p><b>Configuration:</b> ${best.config || "—"}</p>
+    <p><b>Boom:</b> ${best.boom} m</p>
+  `;
 
   result.innerHTML = html;
 }
 
-[boomRequest, loadInput, radiusInput,
- obsRadiusInput, obsHeightInput, marginInput, showAltInput]
-.forEach(e => e.addEventListener("input", () => {
-  updateBoomOptions();
-  calculate();
-}));
+[
+  boomRequest, loadInput, radiusInput,
+  obsRadiusInput, obsHeightInput,
+  marginInput, showAltInput, radiusLockedInput
+].forEach(e => e.addEventListener("input", calculate));
 
-ballast.addEventListener("change", () => {
-  boomSelect.innerHTML = "";
-  result.innerHTML = "Select a boom length.";
-  loadData(ballast.value);
-});
-
-boomSelect.addEventListener("change", calculate);
-
-document.querySelectorAll('input[name="mode"]')
-  .forEach(r => r.addEventListener("change", calculate));
+ballast.addEventListener("change", () => loadData(ballast.value));
+document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", calculate));
 
 loadData(ballast.value);
 </script>
