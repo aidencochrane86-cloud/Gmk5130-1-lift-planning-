@@ -45,7 +45,6 @@ input::placeholder {
   font-size:0.8em;
 }
 .badge.basic { background:#0066cc; }
-.badge.boom { background:#555; }
 
 .fail { color:#b42318; font-weight:bold; }
 .advice { color:#555; font-size:0.9em; }
@@ -62,14 +61,11 @@ input::placeholder {
   <strong>Crane:</strong> GMK5130-1<br>
   <strong>Slew:</strong> 360°<br>
   <span id="metaBallast"><strong>Ballast:</strong> —</span><br>
-  <span id="modeBadge" class="badge basic">Mode: Basic Mode</span>
+  <span class="badge basic">Mode: Basic Mode</span>
 </div>
 
 <div class="card">
 <h2>Inputs</h2>
-
-<label><input type="radio" name="mode" value="optimised" checked> Basic Mode</label>
-<label><input type="radio" name="mode" value="boom"> Boom-specific</label>
 
 <label>Ballast</label>
 <select id="ballast">
@@ -86,15 +82,6 @@ input::placeholder {
 
 <label>Working Radius (m)</label>
 <input id="radius" type="number">
-
-<label>Obstruction Radius (m)</label>
-<input id="obsRadius" type="number" placeholder="optional">
-
-<label>Obstruction Height (m)</label>
-<input id="obsHeight" type="number" placeholder="optional">
-
-<label>Clearance Margin (m)</label>
-<input id="margin" type="number" placeholder="optional">
 </div>
 
 <div class="card">
@@ -110,9 +97,6 @@ const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
 const riggingInput = document.getElementById("rigging");
 const radiusInput = document.getElementById("radius");
-const obsRadiusInput = document.getElementById("obsRadius");
-const obsHeightInput = document.getElementById("obsHeight");
-const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
 
@@ -151,48 +135,53 @@ function calculate() {
     return;
   }
 
-  let candidates = [];
+  /* =====================================================
+     ✅ FIX: select nearest usable chart radius (OEM logic)
+     ===================================================== */
 
-  DATA.forEach(r => {
-    if (r.radius < radius) return;
-    if (r.capacity < totalLoad) return;
+  const usableRadii = [...new Set(
+    DATA.map(r => r.radius).filter(r => r >= radius)
+  )];
 
-    /* ================================
-       ✅ GEOMETRY + OBSTRUCTION FIX
-       ================================ */
-    if (obsRadiusInput.value && obsHeightInput.value) {
-      const obsR = +obsRadiusInput.value;
-      const obsH = +obsHeightInput.value;
-      const margin = +marginInput.value || 0;
-
-      const horiz = r.boom * r.boom - radius * radius;
-      if (horiz <= 0) return;
-
-      const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
-      const reqH = (obsH * radius / obsR) + margin;
-
-      if (tip < reqH) return; // ❌ fails clearance
-    }
-    /* ================================ */
-
-    candidates.push({
-      boom: r.boom,
-      config: r.config,
-      util: totalLoad / r.capacity * 100
-    });
-  });
-
-  if (!candidates.length || candidates[0].util >= 90) {
+  if (!usableRadii.length) {
     result.innerHTML = `
-      <h3 class="fail">Lift is not possible with the selected ballast</h3>
-      <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
-      <p>Utilisation exceeds planning limit (90%).</p>
+      <h3 class="fail">No valid chart radius available</h3>
+      <p>Requested radius exceeds chart limits.</p>
     `;
     return;
   }
 
-  candidates.sort((a,b)=>a.util-b.util);
+  const selectedRadius = Math.min(...usableRadii);
+
+  const candidates = DATA
+    .filter(r => r.radius === selectedRadius && r.capacity >= totalLoad)
+    .map(r => ({
+      boom: r.boom,
+      config: r.config,
+      capacity: r.capacity,
+      util: totalLoad / r.capacity * 100
+    }))
+    .sort((a,b)=>a.util-b.util);
+
+  if (!candidates.length) {
+    result.innerHTML = `
+      <h3 class="fail">Lift not possible at ${selectedRadius.toFixed(1)} m radius</h3>
+      <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
+      <p>Chart capacity is insufficient.</p>
+    `;
+    return;
+  }
+
   const best = candidates[0];
+
+  if (best.util >= 90) {
+    result.innerHTML = `
+      <h3 class="fail">Lift is not permitted</h3>
+      <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
+      <p>Utilisation is ${best.util.toFixed(1)}% (≥ 90%).</p>
+    `;
+    return;
+  }
 
   result.innerHTML = `
     <h3>Basic Mode Result</h3>
@@ -201,20 +190,21 @@ function calculate() {
     <p><b>Boom length:</b> ${best.boom} m</p>
     <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
     <p><b>Outriggers:</b> ${META.outriggers || "—"}</p>
+    <p><b>Radius used:</b> ${selectedRadius.toFixed(1)} m</p>
     <p><b>Utilisation:</b>
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
     ${isAmber(best.util) ? `
       <p class="advice">
-        <b>Risk note:</b> Utilisation is within amber range.<br>
-        Reduced capacity margin — verify lift conditions.
+        <b>Risk note:</b> Utilisation is in the amber range.<br>
+        Verify lift conditions and tolerances.
       </p>
     ` : ``}
     <p><b>SLI code:</b> ${META.sli || "—"}</p>
   `;
 }
 
-[loadInput, riggingInput, radiusInput, obsRadiusInput, obsHeightInput, marginInput]
+[loadInput, riggingInput, radiusInput]
   .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
