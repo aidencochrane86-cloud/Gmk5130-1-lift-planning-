@@ -114,10 +114,10 @@ th { background:#f0f0f0; }
 <select id="boomSelect"></select>
 
 <label>Load (t)</label>
-<input id="load" type="number" placeholder="optional">
+<input id="load" type="number">
 
 <label>Working Radius (m)</label>
-<input id="radius" type="number" placeholder="optional">
+<input id="radius" type="number">
 
 <label>Obstruction Radius (m)</label>
 <input id="obsRadius" type="number" placeholder="optional">
@@ -254,15 +254,15 @@ function calculate() {
     return;
   }
 
-  /* ===== BASIC MODE (ORIGINAL OPTIMISED LOGIC) ===== */
+  /* ===== BASIC MODE ===== */
   const load = +loadInput.value;
   const radius = +radiusInput.value;
-  const obsR = +obsRadiusInput.value;
-  const obsH = +obsHeightInput.value;
-  const margin = +marginInput.value || 0;
+  const obsR = obsRadiusInput.value ? +obsRadiusInput.value : null;
+  const obsH = obsHeightInput.value ? +obsHeightInput.value : null;
+  const margin = marginInput.value ? +marginInput.value : 0;
 
-  if (!load || !radius || !obsR || !obsH) {
-    result.innerHTML = "Enter all required inputs.";
+  if (!load || !radius) {
+    result.innerHTML = "Enter load and radius.";
     return;
   }
 
@@ -271,12 +271,15 @@ function calculate() {
   DATA.forEach(r => {
     if (r.radius < radius || r.capacity < load) return;
 
-    const horiz = r.boom*r.boom - radius*radius;
-    if (horiz <= 0) return;
+    // Only apply obstruction check if BOTH values exist
+    if (obsR !== null && obsH !== null) {
+      const horiz = r.boom*r.boom - radius*radius;
+      if (horiz <= 0) return;
 
-    const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
-    const reqH = (obsH * radius / obsR) + margin;
-    if (tip < reqH) return;
+      const tip = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
+      const reqH = (obsH * radius / obsR) + margin;
+      if (tip < reqH) return;
+    }
 
     candidates.push({
       boom: r.boom,
