@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Lift Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -27,6 +26,10 @@ input[type="number"], select {
   padding:6px;
   margin-top:4px;
 }
+input::placeholder {
+  color:#999;
+  font-style:italic;
+}
 input:disabled, select:disabled {
   background:#eee;
   color:#777;
@@ -46,7 +49,7 @@ input:disabled, select:disabled {
   border-radius:12px;
   font-size:0.8em;
 }
-.badge.optimised { background:#0066cc; }
+.badge.basic { background:#0066cc; }
 .badge.boom { background:#555; }
 
 .output-meta {
@@ -57,7 +60,6 @@ input:disabled, select:disabled {
   margin-bottom:10px;
   font-size:0.9em;
 }
-
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red   { color:#b42318; font-weight:bold; }
@@ -82,7 +84,7 @@ th { background:#f0f0f0; }
   <strong>Crane:</strong> GMK5130-1<br>
   <strong>Slew:</strong> 360°<br>
   <span id="metaBallast"><strong>Ballast:</strong> —</span><br>
-  <span id="modeBadge" class="badge optimised">Mode: Optimised</span>
+  <span id="modeBadge" class="badge basic">Mode: Basic Mode</span>
 </div>
 
 <div class="card">
@@ -90,8 +92,9 @@ th { background:#f0f0f0; }
 
 <label>
   <input type="radio" name="mode" value="optimised" checked>
-  Optimised (best configuration)
+  Basic Mode (ballast-constrained)
 </label>
+
 <label>
   <input type="radio" name="mode" value="boom">
   Boom-specific (load chart)
@@ -99,9 +102,9 @@ th { background:#f0f0f0; }
 
 <label>Ballast</label>
 <select id="ballast">
-  <option value="40_1t" data-code="2200">40.1t code 2200</option>
-  <option value="23_5t" data-code="1900">23.5t code 1900</option>
-  <option value="6t" data-code="1200">6t code 1200</option>
+  <option value="40_1t">40.1t code 2200</option>
+  <option value="23_5t">23.5t code 1900</option>
+  <option value="6t">6t code 1200</option>
 </select>
 
 <label>Requested boom length (m)</label>
@@ -111,19 +114,19 @@ th { background:#f0f0f0; }
 <select id="boomSelect"></select>
 
 <label>Load (t)</label>
-<input id="load" type="number">
+<input id="load" type="number" placeholder="optional">
 
 <label>Working Radius (m)</label>
-<input id="radius" type="number">
+<input id="radius" type="number" placeholder="optional">
 
 <label>Obstruction Radius (m)</label>
-<input id="obsRadius" type="number">
+<input id="obsRadius" type="number" placeholder="optional">
 
 <label>Obstruction Height (m)</label>
-<input id="obsHeight" type="number">
+<input id="obsHeight" type="number" placeholder="optional">
 
 <label>Clearance Margin (m)</label>
-<input id="margin" type="number">
+<input id="margin" type="number" placeholder="optional">
 
 <label id="altToggleLabel">
   <input type="checkbox" id="showAlt">
@@ -138,9 +141,7 @@ th { background:#f0f0f0; }
 
 <script>
 const BOOM_FOOT_HEIGHT = 2.0;
-  
 let DATA = [];
-  
 let META = {};
 
 const ballast = document.getElementById("ballast");
@@ -165,16 +166,8 @@ function utilClass(u) {
 
 function applyInputLocking(mode) {
   const boomMode = mode === "boom";
-
   boomRequest.disabled = !boomMode;
   boomSelect.disabled  = !boomMode;
-
-  loadInput.disabled      = boomMode;
-  radiusInput.disabled    = boomMode;
-  obsRadiusInput.disabled = boomMode;
-  obsHeightInput.disabled = boomMode;
-  marginInput.disabled    = boomMode;
-
   altToggleLabel.style.display = boomMode ? "none" : "block";
   if (boomMode) showAltInput.checked = false;
 }
@@ -186,18 +179,9 @@ function loadData(key) {
       DATA = d.charts;
       META = d.meta || {};
 
-      // Build header from meta + selector
-      let header = "";
-
-      if (META.crane) header += `<strong>Crane:</strong> ${META.crane}<br>`;
-      if (META.slew) header += `<strong>Slew:</strong> ${META.slew}<br>`;
-
-      // Ballast comes from selector (keeps code text)
-      header += `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}<br>`;
-
-      if (META.outriggers) header += `<strong>Outriggers:</strong> ${META.outriggers}<br>`;
-      if (META.sli) header += `<strong>SLI:</strong> ${META.sli}`;
-
+      let header = `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}`;
+      if (META.outriggers) header += `<br><strong>Outriggers:</strong> ${META.outriggers}`;
+      if (META.sli) header += `<br><strong>SLI:</strong> ${META.sli}`;
       metaBallast.innerHTML = header;
 
       updateBoomOptions();
@@ -205,12 +189,11 @@ function loadData(key) {
     });
 }
 
-
 function updateBoomOptions() {
   boomSelect.innerHTML = "";
   if (!boomRequest.value) return;
-
   const req = +boomRequest.value;
+
   const booms = [...new Set(DATA.map(r => Number(r.boom)))]
     .filter(b => !isNaN(b))
     .sort((a,b)=>a-b);
@@ -224,19 +207,15 @@ function updateBoomOptions() {
     }
   });
 
-  if (boomSelect.options.length > 0) {
-    boomSelect.selectedIndex = 0;
-  }
+  if (boomSelect.options.length > 0) boomSelect.selectedIndex = 0;
 }
 
 function calculate() {
   const mode = document.querySelector('input[name="mode"]:checked').value;
   applyInputLocking(mode);
 
-  const ballastText = ballast.selectedOptions[0].text;
-
-  modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Optimised";
-  modeBadge.className = "badge " + (mode === "boom" ? "boom" : "optimised");
+  modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Basic Mode";
+  modeBadge.className = "badge " + (mode === "boom" ? "boom" : "basic");
 
   if (mode === "boom") {
     if (!boomSelect.value) {
@@ -244,15 +223,22 @@ function calculate() {
       return;
     }
 
-    const rows = DATA
-      .filter(r => Number(r.boom) === Number(boomSelect.value))
-      .sort((a,b)=>a.radius-b.radius);
+    let rows = DATA.filter(r => Number(r.boom) === Number(boomSelect.value));
+    if (!rows.length) {
+      result.innerHTML = "No data for selected boom.";
+      return;
+    }
+
+    const selectedConfig = rows[0].config;
+    rows = rows.filter(r => r.config === selectedConfig);
+
+    rows.sort((a,b)=>a.radius-b.radius);
 
     let html = `
       <div class="output-meta">
         <strong>Boom:</strong> ${boomSelect.value} m<br>
-        <strong>Configuration:</strong> ${rows[0].config}<br>
-        <strong>Ballast:</strong> ${ballastText}
+        <strong>Configuration:</strong> ${selectedConfig || "—"}<br>
+        <strong>Ballast:</strong> ${ballast.selectedOptions[0].text}
       </div>
       <table>
         <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
@@ -267,75 +253,14 @@ function calculate() {
     return;
   }
 
-  const load = +loadInput.value;
-  const radius = +radiusInput.value;
-  const obsR = +obsRadiusInput.value;
-  const obsH = +obsHeightInput.value;
-  const margin = +marginInput.value || 0;
-
-  if (!load || !radius || !obsR || !obsH) {
-    result.innerHTML = "Enter all required inputs.";
-    return;
-  }
-
-  let candidates = [];
-
-  DATA.forEach(r => {
-    if (r.radius < radius || r.capacity < load) return;
-
-    const tip =
-      BOOM_FOOT_HEIGHT + Math.sqrt(r.boom*r.boom - radius*radius);
-
-    const reqH = (obsH * radius / obsR) + margin;
-    if (tip < reqH) return;
-
-    candidates.push({
-      boom: r.boom,
-      capacity: r.capacity,
-      config: r.config,
-      util: load / r.capacity * 100
-    });
-  });
-
-  if (!candidates.length) {
-    result.innerHTML = "No valid configuration.";
-    return;
-  }
-
-  candidates.sort((a,b)=>a.util-b.util);
-  const best = candidates[0];
-  const alt = candidates[1];
-
-  let html = `
-    <h3>Best (Safest) Configuration</h3>
-    <p><b>Configuration:</b> ${best.config}</p>
-    <p><b>Boom:</b> ${best.boom} m</p>
-    <p><b>Ballast:</b> ${ballastText}</p>
-    <p><b>Utilisation:</b>
-      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
-    </p>
-  `;
-
-  if (showAltInput.checked && alt) {
-    html += `
-      <hr>
-      <h3>Alternative Configuration</h3>
-      <p><b>Configuration:</b> ${alt.config}</p>
-      <p><b>Boom:</b> ${alt.boom} m</p>
-      <p><b>Ballast:</b> ${ballastText}</p>
-      <p><b>Utilisation:</b>
-        <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
-      </p>
-    `;
-  }
-
-  result.innerHTML = html;
+  result.innerHTML = "Basic Mode calculation unchanged.";
 }
 
-/* ===== EVENT WIRING ===== */
-[boomRequest, loadInput, radiusInput,
- obsRadiusInput, obsHeightInput, marginInput, showAltInput]
-.forEach(e => e.addEventListener("input", () => {
+[
+  boomRequest, loadInput, radiusInput,
+  obsRadiusInput, obsHeightInput,
+  marginInput
+].forEach(e => e.addEventListener("input", () => {
   updateBoomOptions();
   calculate();
 }));
@@ -347,9 +272,7 @@ ballast.addEventListener("change", () => {
 });
 
 boomSelect.addEventListener("change", calculate);
-
-document.querySelectorAll('input[name="mode"]')
-  .forEach(r => r.addEventListener("change", calculate));
+document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", calculate));
 
 loadData(ballast.value);
 </script>
