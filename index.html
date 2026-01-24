@@ -170,7 +170,7 @@ function applyInputLocking(mode) {
   boomRequest.disabled = !boomMode;
   boomSelect.disabled  = !boomMode;
 
-  // OPTIONAL inputs always enabled
+  // Optional inputs are always enabled
   loadInput.disabled = false;
   radiusInput.disabled = false;
   obsRadiusInput.disabled = false;
@@ -187,8 +187,16 @@ function loadData(key) {
     .then(d => {
       DATA = d.charts;
       META = d.meta || {};
+
       let header = `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}`;
+      if (META.outriggers) {
+        header += `<br><strong>Outriggers:</strong> ${META.outriggers}`;
+      }
+      if (META.sli) {
+        header += `<br><strong>SLI:</strong> ${META.sli}`;
+      }
       metaBallast.innerHTML = header;
+
       updateBoomOptions();
       calculate();
     });
