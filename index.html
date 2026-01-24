@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Lift Planner</title>
+<title>Lift Planner – Test</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body {
@@ -82,6 +82,16 @@ input::placeholder {
 
 <label>Working Radius (m)</label>
 <input id="radius" type="number">
+
+<!-- ✅ OBSTRUCTION INPUTS (VISIBLE) -->
+<label>Obstruction Radius (m)</label>
+<input id="obsRadius" type="number" placeholder="optional">
+
+<label>Obstruction Height (m)</label>
+<input id="obsHeight" type="number" placeholder="optional">
+
+<label>Clearance Margin (m)</label>
+<input id="margin" type="number" placeholder="optional">
 </div>
 
 <div class="card">
@@ -97,6 +107,9 @@ const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
 const riggingInput = document.getElementById("rigging");
 const radiusInput = document.getElementById("radius");
+const obsRadiusInput = document.getElementById("obsRadius");
+const obsHeightInput = document.getElementById("obsHeight");
+const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
 
@@ -104,10 +117,6 @@ function utilClass(u) {
   if (u >= 90) return "util-red";
   if (u > 85) return "util-amber";
   return "util-green";
-}
-
-function isAmber(u) {
-  return u > 85 && u < 90;
 }
 
 function loadData(key) {
@@ -128,84 +137,88 @@ function calculate() {
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
   const totalLoad = load + rigging;
-  const radius = +radiusInput.value;
+  const reqRadius = +radiusInput.value;
 
-  if (!load || !radius) {
+  if (!load || !reqRadius) {
     result.innerHTML = "Enter load and radius.";
     return;
   }
 
-  /* =====================================================
-     ✅ FIX: select nearest usable chart radius (OEM logic)
-     ===================================================== */
-
   const usableRadii = [...new Set(
-    DATA.map(r => r.radius).filter(r => r >= radius)
+    DATA.map(r => r.radius).filter(r => r >= reqRadius)
   )];
 
   if (!usableRadii.length) {
-    result.innerHTML = `
-      <h3 class="fail">No valid chart radius available</h3>
-      <p>Requested radius exceeds chart limits.</p>
-    `;
+    result.innerHTML = `<p class="fail">No valid chart radius available.</p>`;
     return;
   }
 
   const selectedRadius = Math.min(...usableRadii);
+  let candidates = [];
 
-  const candidates = DATA
-    .filter(r => r.radius === selectedRadius && r.capacity >= totalLoad)
-    .map(r => ({
+  DATA.forEach(r => {
+    if (r.radius !== selectedRadius) return;
+    if (r.capacity < totalLoad) return;
+
+    /* === GEOMETRY CHECK === */
+    if (obsRadiusInput.value && obsHeightInput.value) {
+      const obsR = +obsRadiusInput.value;
+      const obsH = +obsHeightInput.value;
+      const margin = +marginInput.value || 0;
+
+      const horiz = r.boom * r.boom - selectedRadius * selectedRadius;
+      if (horiz <= 0) return;
+
+      const tipHeight = BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
+      const requiredHeight =
+        (obsH * selectedRadius / obsR) + margin;
+
+      if (tipHeight < requiredHeight) return;
+    }
+
+    candidates.push({
       boom: r.boom,
       config: r.config,
       capacity: r.capacity,
       util: totalLoad / r.capacity * 100
-    }))
-    .sort((a,b)=>a.util-b.util);
+    });
+  });
 
   if (!candidates.length) {
     result.innerHTML = `
-      <h3 class="fail">Lift not possible at ${selectedRadius.toFixed(1)} m radius</h3>
-      <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
-      <p>Chart capacity is insufficient.</p>
-    `;
+      <p class="fail">
+        No configuration clears capacity and/or obstruction constraints.
+      </p>`;
     return;
   }
 
+  candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
 
   if (best.util >= 90) {
     result.innerHTML = `
-      <h3 class="fail">Lift is not permitted</h3>
-      <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
-      <p>Utilisation is ${best.util.toFixed(1)}% (≥ 90%).</p>
-    `;
+      <p class="fail">
+        Lift not permitted – utilisation ${best.util.toFixed(1)}%.
+      </p>`;
     return;
   }
 
   result.innerHTML = `
-    <h3>Basic Mode Result</h3>
-    <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
+    <h3>Result</h3>
+    <p><b>Total load:</b> ${totalLoad.toFixed(2)} t</p>
     <p><b>Configuration:</b> ${best.config}</p>
-    <p><b>Boom length:</b> ${best.boom} m</p>
-    <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
-    <p><b>Outriggers:</b> ${META.outriggers || "—"}</p>
+    <p><b>Boom:</b> ${best.boom} m</p>
     <p><b>Radius used:</b> ${selectedRadius.toFixed(1)} m</p>
     <p><b>Utilisation:</b>
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
-    ${isAmber(best.util) ? `
-      <p class="advice">
-        <b>Risk note:</b> Utilisation is in the amber range.<br>
-        Verify lift conditions and tolerances.
-      </p>
-    ` : ``}
-    <p><b>SLI code:</b> ${META.sli || "—"}</p>
   `;
 }
 
-[loadInput, riggingInput, radiusInput]
-  .forEach(e => e.addEventListener("input", calculate));
+[
+  loadInput, riggingInput, radiusInput,
+  obsRadiusInput, obsHeightInput, marginInput
+].forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
 
@@ -214,3 +227,4 @@ loadData(ballast.value);
 
 </body>
 </html>
+
