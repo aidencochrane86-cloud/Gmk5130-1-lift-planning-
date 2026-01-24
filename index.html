@@ -60,6 +60,10 @@ input:disabled, select:disabled {
   margin-bottom:10px;
   font-size:0.9em;
 }
+.fail {
+  color:#b42318;
+  font-weight:bold;
+}
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red   { color:#b42318; font-weight:bold; }
@@ -255,15 +259,21 @@ function calculate() {
     });
   });
 
+  /* ===== BASIC MODE FAIL ===== */
   if (!candidates.length) {
-    result.innerHTML = "No valid configuration.";
+    result.innerHTML = `
+      <h3 class="fail">Lift is not possible with the selected configuration</h3>
+      <p><b>Requested load:</b> ${load} t</p>
+      <p><b>Requested radius:</b> ${radius} m</p>
+      <p>Capacity limits exceeded with the selected ballast.</p>
+    `;
     return;
   }
 
   candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
 
-  let html = `
+  result.innerHTML = `
     <h3>Basic Mode Result</h3>
     <p><b>Configuration:</b> ${best.config || "—"}</p>
     <p><b>Boom length:</b> ${best.boom} m</p>
@@ -274,22 +284,16 @@ function calculate() {
     </p>
     <p><b>SLI code:</b> ${META.sli || "—"}</p>
   `;
-
-  result.innerHTML = html;
 }
 
 [
   boomRequest, loadInput, radiusInput,
   obsRadiusInput, obsHeightInput,
-  marginInput, showAltInput
-].forEach(e => e.addEventListener("input", () => {
-  updateBoomOptions();
-  calculate();
-}));
+  marginInput
+].forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => {
-  boomSelect.innerHTML = "";
-  result.innerHTML = "Select a boom length.";
+  result.innerHTML = "Select inputs.";
   loadData(ballast.value);
 });
 
