@@ -135,289 +135,289 @@
     },
     {
       "boom": 17.57,
-      "radius": 14.0,
+      "radius": 3.0,
       "capacity": 52.0,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 13.0,
+      "radius": 4.0,
       "capacity": 52.0,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 12.0,
+      "radius": 5.0,
       "capacity": 52.0,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 11.0,
+      "radius": 6.0,
       "capacity": 50.0,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 10.0,
+      "radius": 7.0,
       "capacity": 45.0,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 9.0,
+      "radius": 8.0,
       "capacity": 41.0,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 8.0,
-      "capacity": 37.5,
+      "radius": 9.0,
+      "capacity":937.5,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 7.0,
+      "radius": 10.0,
       "capacity": 34.5,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 6.0,
+      "radius": 11.0,
       "capacity": 29.0,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 5.0,
+      "radius": 12.0,
       "capacity": 25.0,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 4.0,
+      "radius": 13.0,
       "capacity": 22.0,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.57,
-      "radius": 3.0,
+      "radius": 14.0,
       "capacity": 19.4,
       "config": "0,0,0,50,0"
     },
     {
       "boom": 17.63,
-      "radius": 14.0,
+      "radius": 3.0,
       "capacity": 72.0,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 13.0,
+      "radius": 4.0,
       "capacity": 72.0,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 12.0,
+      "radius": 5.0,
       "capacity": 67.0,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 11.0,
+      "radius": 6.0,
       "capacity": 58.0,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 10.0,
+      "radius": 7.0,
       "capacity": 51.0,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 9.0,
+      "radius": 8.0,
       "capacity": 45.0,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 8.0,
+      "radius": 9.0,
       "capacity": 39.5,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 7.0,
+      "radius": 10.0,
       "capacity": 33.5,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 6.0,
+      "radius": 11.0,
       "capacity": 28.5,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 5.0,
+      "radius": 12.0,
       "capacity": 24.5,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 4.0,
+      "radius": 13.0,
       "capacity": 21.5,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.63,
-      "radius": 3.0,
+      "radius": 14.0,
       "capacity": 18.7,
       "config": "0,0,50,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 14.0,
+      "radius": 3.0,
       "capacity": 86.0,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 13.0,
+      "radius": 4.0,
       "capacity": 76.5,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 12.0,
+      "radius": 5.0,
       "capacity": 66.5,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 11.0,
+      "radius": 6.0,
       "capacity": 57.5,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 10.0,
+      "radius": 7.0,
       "capacity": 50.0,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 9.0,
+      "radius": 8.0,
       "capacity": 44.5,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 8.0,
+      "radius": 9.0,
       "capacity": 39.0,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 7.0,
+      "radius": 10.0,
       "capacity": 32.5,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 6.0,
+      "radius": 11.0,
       "capacity": 27.5,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 5.0,
+      "radius": 12.0,
       "capacity": 23.5,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 4.0,
+      "radius": 13.0,
       "capacity": 20.5,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.65,
-      "radius": 3.0,
+      "radius": 14.0,
       "capacity": 18.0,
       "config": "0,50,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 14.0,
+      "radius": 3.0,
       "capacity": 86.0,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 13.0,
+      "radius": 4.0,
       "capacity": 76.0,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 12.0,
+      "radius": 5.0,
       "capacity": 65.5,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 11.0,
+      "radius": 6.0,
       "capacity": 56.5,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 10.0,
+      "radius": 7.0,
       "capacity": 49.5,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 9.0,
+      "radius": 8.0,
       "capacity": 44.0,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 8.0,
+      "radius": 9.0,
       "capacity": 38.0,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 7.0,
+      "radius": 10.0,
       "capacity": 31.5,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 6.0,
+      "radius": 11.0,
       "capacity": 26.5,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 5.0,
+      "radius": 12.0,
       "capacity": 23.0,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 4.0,
+      "radius": 13.0,
       "capacity": 19.7,
       "config": "50,0,0,0,0"
     },
     {
       "boom": 17.69,
-      "radius": 3.0,
+      "radius": 14.0,
       "capacity": 17.1,
       "config": "50,0,0,0,0"
     },
