@@ -45,7 +45,6 @@ input::placeholder {
   font-size:0.8em;
 }
 .badge.basic { background:#0066cc; }
-.badge.boom { background:#555; }
 
 .fail { color:#b42318; font-weight:bold; }
 .advice { color:#555; font-size:0.9em; }
@@ -62,14 +61,11 @@ input::placeholder {
   <strong>Crane:</strong> GMK5130-1<br>
   <strong>Slew:</strong> 360°<br>
   <span id="metaBallast"><strong>Ballast:</strong> —</span><br>
-  <span id="modeBadge" class="badge basic">Mode: Basic Mode</span>
+  <span class="badge basic">Mode: Basic Mode</span>
 </div>
 
 <div class="card">
 <h2>Inputs</h2>
-
-<label><input type="radio" name="mode" value="optimised" checked> Basic Mode</label>
-<label><input type="radio" name="mode" value="boom"> Boom-specific</label>
 
 <label>Ballast</label>
 <select id="ballast">
@@ -81,7 +77,7 @@ input::placeholder {
 <label>Load (t)</label>
 <input id="load" type="number">
 
-<label>Block &amp; rigging (t)</label>
+<label>Block & rigging (t)</label>
 <input id="rigging" type="number" placeholder="optional">
 
 <label>Working Radius (m)</label>
@@ -122,10 +118,6 @@ function utilClass(u) {
   return "util-green";
 }
 
-function isAmber(u) {
-  return u > 85 && u < 90;
-}
-
 function loadData(key) {
   fetch(`loadchart_${key}.json`)
     .then(r => r.json())
@@ -145,30 +137,66 @@ function calculate() {
   const rigging = riggingInput.value ? +riggingInput.value : 0;
   const totalLoad = load + rigging;
   const radius = +radiusInput.value;
+  const obsR = +obsRadiusInput.value;
+  const obsH = +obsHeightInput.value;
+  const margin = marginInput.value ? +marginInput.value : 0;
 
   if (!load || !radius) {
     result.innerHTML = "Enter load and radius.";
     return;
   }
 
-  let candidates = DATA
-    .filter(r => r.radius >= radius && r.capacity >= totalLoad)
-    .map(r => ({
+  let rejected = { capacity: 0, clearance: 0 };
+  let candidates = [];
+
+  DATA.forEach(r => {
+    if (r.radius < radius) return;
+
+    if (r.capacity < totalLoad) {
+      rejected.capacity++;
+      return;
+    }
+
+    if (obsR && obsH) {
+      const horiz = r.boom*r.boom - radius*radius;
+      if (horiz <= 0) return;
+
+      const vertical = Math.sqrt(horiz);
+      const heightAtObs =
+        BOOM_FOOT_HEIGHT + vertical * (obsR / radius);
+
+      if (heightAtObs < obsH + margin) {
+        rejected.clearance++;
+        return;
+      }
+    }
+
+    candidates.push({
       boom: r.boom,
       config: r.config,
       util: totalLoad / r.capacity * 100
-    }))
-    .sort((a,b)=>a.util-b.util);
+    });
+  });
 
-  if (!candidates.length || candidates[0].util >= 90) {
+  if (!candidates.length) {
     result.innerHTML = `
-      <h3 class="fail">Lift is not possible with the selected ballast</h3>
+      <h3 class="fail">Lift not possible</h3>
       <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
-      <p>Utilisation exceeds planning limit (90%).</p>
+      <p>
+        ${rejected.capacity ? "Capacity exceeded on available charts.<br>" : ""}
+        ${rejected.clearance ? "Boom cannot clear obstruction at this radius.<br>" : ""}
+      </p>
+      <p class="advice"><b>What can I change?</b><br>
+        • Increase boom length<br>
+        • Increase working radius<br>
+        • Increase ballast<br>
+        • Reduce obstruction height or clearance margin
+      </p>
     `;
     return;
   }
 
+  candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
 
   result.innerHTML = `
@@ -181,12 +209,6 @@ function calculate() {
     <p><b>Utilisation:</b>
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
-    ${isAmber(best.util) ? `
-      <p class="advice">
-        <b>Risk note:</b> Utilisation is within amber range.<br>
-        Reduced capacity margin — verify lift conditions and tolerances.
-      </p>
-    ` : ``}
     <p><b>SLI code:</b> ${META.sli || "—"}</p>
   `;
 }
@@ -195,7 +217,6 @@ function calculate() {
   .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
-
 loadData(ballast.value);
 </script>
 
