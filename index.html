@@ -46,6 +46,18 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 
 <label>Working Radius (m)</label>
 <input id="radius" type="number">
+
+<!-- ✅ RESTORED OBSTRUCTION INPUTS -->
+<label>Obstruction Radius (m)</label>
+<input id="obsRadius" type="number" placeholder="optional">
+
+<label>Obstruction Height (m)</label>
+<input id="obsHeight" type="number" placeholder="optional">
+
+<label>Clearance Margin (m)</label>
+<input id="margin" type="number" placeholder="optional">
+<!-- ✅ END RESTORED -->
+
 </div>
 
 <div class="card">
@@ -89,19 +101,16 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 </div>
 
 <script>
-/* ================== CONSTANTS ================== */
 const SVG_SCALE = 6;
 const pivotX = 130;
 const pivotY = 300;
 
-/* ================== SVG ELEMENTS ================== */
 const boomLine = document.getElementById("boom");
 const radiusLine = document.getElementById("radiusLine");
 const tipHeightLine = document.getElementById("tipHeightLine");
 const radiusLabel = document.getElementById("radiusLabel");
 const tipHeightLabel = document.getElementById("tipHeightLabel");
 
-/* ================== DATA ================== */
 let DATA = [], META = {};
 
 const ballast = document.getElementById("ballast");
@@ -111,14 +120,12 @@ const radiusInput = document.getElementById("radius");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
 
-/* ================== HELPERS ================== */
 function utilClass(u) {
   if (u >= 90) return "util-red";
   if (u > 85) return "util-amber";
   return "util-green";
 }
 
-/* ================== LOAD DATA ================== */
 function loadData(key) {
   fetch(`loadchart_${key}.json`)
     .then(r => r.json())
@@ -133,7 +140,6 @@ function loadData(key) {
     });
 }
 
-/* ================== CALCULATE ================== */
 function calculate() {
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
@@ -165,7 +171,6 @@ function calculate() {
 
   const best = candidates[0];
 
-  /* ================== GEOMETRY ================== */
   const tipHeight = Math.sqrt(
     Math.max(0, best.boom * best.boom - radius * radius)
   );
@@ -175,7 +180,6 @@ function calculate() {
 
   boomLine.setAttribute("x2", boomX);
   boomLine.setAttribute("y2", boomY);
-
   radiusLine.setAttribute("x2", boomX);
   tipHeightLine.setAttribute("x1", boomX);
   tipHeightLine.setAttribute("y1", boomY);
@@ -185,7 +189,6 @@ function calculate() {
   radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
   tipHeightLabel.textContent = `H = ${tipHeight.toFixed(1)} m`;
 
-  /* ================== OUTPUT (RESTORED FIELDS) ================== */
   result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
     <p><b>Configuration:</b> ${best.config}</p>
@@ -200,7 +203,6 @@ function calculate() {
   `;
 }
 
-/* ================== EVENTS ================== */
 [loadInput, riggingInput, radiusInput]
   .forEach(e => e.addEventListener("input", calculate));
 
