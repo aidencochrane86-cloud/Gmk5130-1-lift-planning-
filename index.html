@@ -83,15 +83,6 @@ input::placeholder {
 
 <label>Working Radius (m)</label>
 <input id="radius" type="number">
-
-<label>Obstruction Radius (m)</label>
-<input id="obsRadius" type="number" placeholder="optional">
-
-<label>Obstruction Height (m)</label>
-<input id="obsHeight" type="number" placeholder="optional">
-
-<label>Clearance Margin (m)</label>
-<input id="margin" type="number" placeholder="optional">
 </div>
 
 <div class="card">
@@ -100,16 +91,12 @@ input::placeholder {
 </div>
 
 <script>
-const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [], META = {};
 
 const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
 const riggingInput = document.getElementById("rigging");
 const radiusInput = document.getElementById("radius");
-const obsRadiusInput = document.getElementById("obsRadius");
-const obsHeightInput = document.getElementById("obsHeight");
-const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
 
@@ -143,40 +130,19 @@ function calculate() {
   const totalLoad = load + rigging;
   const radius = +radiusInput.value;
 
-  const obsR = +obsRadiusInput.value;
-  const obsH = +obsHeightInput.value;
-  const margin = +marginInput.value || 0;
-
   if (!load || !radius) {
     result.innerHTML = "Enter load and radius.";
     return;
   }
 
-  let candidates = [];
-
-  DATA.forEach(r => {
-    if (r.radius < radius || r.capacity < totalLoad) return;
-
-    // Geometry check (only if obstruction inputs provided)
-    if (obsR && obsH) {
-      const horiz = r.boom * r.boom - radius * radius;
-      if (horiz <= 0) return;
-
-      const tipHeight =
-        BOOM_FOOT_HEIGHT + Math.sqrt(horiz);
-
-      const requiredHeight =
-        (obsH * radius / obsR) + margin;
-
-      if (tipHeight < requiredHeight) return;
-    }
-
-    candidates.push({
+  let candidates = DATA
+    .filter(r => r.radius >= radius && r.capacity >= totalLoad)
+    .map(r => ({
       boom: r.boom,
       config: r.config,
       util: totalLoad / r.capacity * 100
-    });
-  });
+    }))
+    .sort((a,b)=>a.util-b.util);
 
   if (!candidates.length || candidates[0].util >= 90) {
     result.innerHTML = `
@@ -187,7 +153,6 @@ function calculate() {
     return;
   }
 
-  candidates.sort((a,b)=>a.util-b.util);
   const best = candidates[0];
 
   result.innerHTML = `
@@ -210,7 +175,7 @@ function calculate() {
   `;
 }
 
-[loadInput, riggingInput, radiusInput, obsRadiusInput, obsHeightInput, marginInput]
+[loadInput, riggingInput, radiusInput]
   .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
