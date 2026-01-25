@@ -18,7 +18,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 .util-red { color:#b42318; font-weight:bold; }
 .alt { background:#fff8e1; border-left:4px solid #f4b400; padding:12px; margin-top:12px; }
 
-/* Hide SVG dynamics until valid calc */
 #boom, #radiusLine, #tipHeightLine, #obstruction, #clearanceLine {
   visibility: hidden;
 }
@@ -189,10 +188,7 @@ function calculate() {
     if (r.radius < radius) return;
     if (r.capacity < totalLoad) return;
 
-    const tipHeight = Math.sqrt(
-      Math.max(0, r.boom * r.boom - radius * radius)
-    );
-
+    const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
     if (obstructionActive) {
       const required = (obsH * radius / obsR) + margin;
       if (tipHeight < required) return;
@@ -212,13 +208,11 @@ function calculate() {
     return;
   }
 
-  // 🔹 Two-result logic
   const lowestUtil = [...candidates].sort((a,b)=>a.util-b.util)[0];
   const near80 = candidates
     .filter(c => c.util <= 80)
     .sort((a,b)=>Math.abs(a.util - 80) - Math.abs(b.util - 80))[0];
 
-  // SVG uses lowest utilisation only
   const best = lowestUtil;
 
   pivot.setAttribute("cy", pivotY);
@@ -255,11 +249,14 @@ function calculate() {
     obstructionRect.setAttribute("y", obsTopY);
     obstructionRect.setAttribute("height", obsH * SVG_SCALE);
 
-    const required = (obsH * radius / obsR) + margin;
-    clearanceLine.setAttribute("x1", obsX);
-    clearanceLine.setAttribute("x2", obsX);
-    clearanceLine.setAttribute("y1", groundY);
-    clearanceLine.setAttribute("y2", pivotY - required * SVG_SCALE);
+    // 🔴 TOP-LEFT CORNER CLEARANCE (visual only)
+    const cornerX = obsX - 15;
+    const cornerY = obsTopY;
+
+    clearanceLine.setAttribute("x1", cornerX);
+    clearanceLine.setAttribute("y1", cornerY);
+    clearanceLine.setAttribute("x2", boomX);
+    clearanceLine.setAttribute("y2", boomY);
   } else {
     obstructionRect.style.visibility = "hidden";
     clearanceLine.style.visibility = "hidden";
