@@ -100,9 +100,16 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 
   <!-- Obstruction -->
   <rect id="obstruction" x="0" y="0" width="30" height="0" fill="#ccc" opacity="0.9"/>
-  <line id="clearanceLine" x1="0" y1="0" x2="0" y2="0"
-        stroke="#e74c3c" stroke-dasharray="4 4" stroke-width="3"/>
 
+  <!-- Clearance line -->
+  <line id="clearanceLine"
+        x1="0"
+        y1="0"
+        x2="0"
+        y2="0"
+        stroke="#e74c3c"
+        stroke-dasharray="4 4"
+        stroke-width="3"/>
 </svg>
 </div>
 
@@ -113,6 +120,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 const SVG_SCALE = 6;
 const pivotX = 130;
 const pivotY = 300;
+const groundY = 340;
 
 const boomLine = document.getElementById("boom");
 const radiusLine = document.getElementById("radiusLine");
@@ -214,14 +222,19 @@ function calculate() {
   radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
   tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
 
+  /* === FIXED OBSTRUCTION VISUAL (GROUND-ANCHORED) === */
   if (obstructionActive) {
     const obsX = pivotX + obsR * SVG_SCALE;
-    const obsTopY = pivotY - obsH * SVG_SCALE;
+    const obsHeightPx = obsH * SVG_SCALE;
+    const obsTopY = groundY - obsHeightPx;
+
     obstructionRect.setAttribute("x", obsX - 15);
     obstructionRect.setAttribute("y", obsTopY);
-    obstructionRect.setAttribute("height", obsH * SVG_SCALE);
+    obstructionRect.setAttribute("height", obsHeightPx);
+
     const requiredHeight = (obsH * radius / obsR) + margin;
     const reqY = pivotY - requiredHeight * SVG_SCALE;
+
     clearanceLine.setAttribute("x1", obsX);
     clearanceLine.setAttribute("x2", obsX);
     clearanceLine.setAttribute("y1", pivotY);
