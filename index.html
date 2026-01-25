@@ -174,14 +174,35 @@ function calculate() {
     return;
   }
 
-  let candidates = DATA
-    .filter(r => r.radius >= radius && r.capacity >= totalLoad)
-    .map(r => ({
-      boom: r.boom,
-      config: r.config,
-      util: totalLoad / r.capacity * 100
-    }))
-    .sort((a,b)=>a.util-b.util);
+  let candidates = [];
+
+DATA.forEach(r => {
+  if (r.radius < radius) return;
+  if (r.capacity < totalLoad) return;
+
+  // Geometry only applies if obstruction data exists
+  if (obsRadiusInput.value && obsHeightInput.value) {
+    const obsR = +obsRadiusInput.value;
+    const obsH = +obsHeightInput.value;
+    const margin = marginInput.value ? +marginInput.value : 0;
+
+    const horiz = r.boom * r.boom - radius * radius;
+    if (horiz <= 0) return;
+
+    const tipHeight = 2.0 + Math.sqrt(horiz);
+    const requiredHeight = (obsH * radius / obsR) + margin;
+
+    if (tipHeight < requiredHeight) return;
+  }
+
+  candidates.push({
+    boom: r.boom,
+    config: r.config,
+    util: totalLoad / r.capacity * 100
+  });
+});
+
+candidates.sort((a,b)=>a.util-b.util);
 
   if (!candidates.length || candidates[0].util >= 90) {
     result.innerHTML = `
