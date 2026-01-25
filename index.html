@@ -16,6 +16,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red { color:#b42318; font-weight:bold; }
+.alt { background:#fff8e1; border-left:4px solid #f4b400; padding:12px; margin-top:12px; }
 
 /* Hide SVG dynamics until valid calc */
 #boom, #radiusLine, #tipHeightLine, #obstruction, #clearanceLine {
@@ -69,13 +70,10 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <svg id="liftDiagram" viewBox="0 0 800 400" width="100%" height="260"
      xmlns="http://www.w3.org/2000/svg">
 
-  <!-- Ground -->
   <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
 
-  <!-- Pivot (2 m above ground) -->
   <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
 
-  <!-- Boom -->
   <line id="boom"
         x1="130" y1="0"
         x2="300" y2="200"
@@ -83,7 +81,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
         stroke-width="8"
         stroke-linecap="round"/>
 
-  <!-- Radius -->
   <line id="radiusLine"
         x1="130" y1="0"
         x2="300" y2="0"
@@ -91,7 +88,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
         stroke-dasharray="6 4"
         stroke-width="2"/>
 
-  <!-- Tip height -->
   <line id="tipHeightLine"
         x1="300" y1="200"
         x2="300" y2="0"
@@ -102,11 +98,9 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <text id="radiusLabel" x="260" y="360" font-size="12" fill="#555"></text>
   <text id="tipHeightLabel" x="310" y="200" font-size="12" fill="#555"></text>
 
-  <!-- Obstruction -->
   <rect id="obstruction" x="0" y="0" width="30" height="0"
         fill="#ccc" opacity="0.9"/>
 
-  <!-- Clearance reference (vertical – Step 1 only) -->
   <line id="clearanceLine"
         x1="0" y1="0"
         x2="0" y2="0"
@@ -218,8 +212,14 @@ function calculate() {
     return;
   }
 
-  candidates.sort((a,b)=>a.util-b.util);
-  const best = candidates[0];
+  // 🔹 Two-result logic
+  const lowestUtil = [...candidates].sort((a,b)=>a.util-b.util)[0];
+  const near80 = candidates
+    .filter(c => c.util <= 80)
+    .sort((a,b)=>Math.abs(a.util - 80) - Math.abs(b.util - 80))[0];
+
+  // SVG uses lowest utilisation only
+  const best = lowestUtil;
 
   pivot.setAttribute("cy", pivotY);
 
@@ -265,15 +265,32 @@ function calculate() {
     clearanceLine.style.visibility = "hidden";
   }
 
-  result.innerHTML = `
+  let html = `
+    <h4>Recommended (Lowest Utilisation)</h4>
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
-    <p><b>Configuration:</b> ${best.config}</p>
-    <p><b>Boom length:</b> ${best.boom} m</p>
+    <p><b>Configuration:</b> ${lowestUtil.config}</p>
+    <p><b>Boom length:</b> ${lowestUtil.boom} m</p>
     <p><b>Utilisation:</b>
-      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+      <span class="${utilClass(lowestUtil.util)}">${lowestUtil.util.toFixed(1)}%</span>
     </p>
-    <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
+    <p><b>Tip height:</b> ${lowestUtil.tipHeight.toFixed(2)} m</p>
   `;
+
+  if (near80 && near80 !== lowestUtil) {
+    html += `
+      <div class="alt">
+        <h4>Most Efficient (~80% Utilisation)</h4>
+        <p><b>Configuration:</b> ${near80.config}</p>
+        <p><b>Boom length:</b> ${near80.boom} m</p>
+        <p><b>Utilisation:</b>
+          <span class="${utilClass(near80.util)}">${near80.util.toFixed(1)}%</span>
+        </p>
+        <p><b>Tip height:</b> ${near80.tipHeight.toFixed(2)} m</p>
+      </div>
+    `;
+  }
+
+  result.innerHTML = html;
 }
 
 [loadInput, riggingInput, radiusInput,
