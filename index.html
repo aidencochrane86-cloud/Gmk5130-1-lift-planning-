@@ -107,7 +107,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <rect id="obstruction" x="0" y="0" width="30" height="0"
         fill="#ccc" opacity="0.9"/>
 
-  <!-- Clearance -->
+  <!-- Clearance (patched) -->
   <line id="clearanceLine"
         x1="0" y1="0"
         x2="0" y2="0"
@@ -240,24 +240,24 @@ function calculate() {
   radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
   tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
 
-  /* ===== VISIBILITY PATCH ===== */
   if (obstructionActive) {
     const obsX = pivotX + obsR * SVG_SCALE;
     const obsTopY = groundY - obsH * SVG_SCALE;
+    const obsLeftX = obsX - 15;
 
     obstructionRect.style.visibility = "visible";
     clearanceLine.style.visibility = "visible";
 
-    obstructionRect.setAttribute("x", obsX - 15);
+    obstructionRect.setAttribute("x", obsLeftX);
     obstructionRect.setAttribute("y", obsTopY);
     obstructionRect.setAttribute("height", obsH * SVG_SCALE);
 
     const required = (obsH * radius / obsR) + margin;
     const reqY = pivotY - required * SVG_SCALE;
 
-    clearanceLine.setAttribute("x1", obsX);
-    clearanceLine.setAttribute("x2", obsX);
-    clearanceLine.setAttribute("y1", groundY);
+    clearanceLine.setAttribute("x1", obsLeftX);
+    clearanceLine.setAttribute("x2", obsLeftX);
+    clearanceLine.setAttribute("y1", obsTopY);
     clearanceLine.setAttribute("y2", reqY);
   } else {
     obstructionRect.style.visibility = "hidden";
