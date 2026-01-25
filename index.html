@@ -13,10 +13,15 @@ input::placeholder { color:#999; font-style:italic; }
 .meta { font-size:0.9em; background:#eef6ff; padding:8px; border-radius:6px; }
 .badge { display:inline-block; margin-top:6px; padding:4px 8px; color:#fff; border-radius:12px; font-size:0.8em; }
 .badge.basic { background:#0066cc; }
+.badge.boom { background:#555; }
 .fail { color:#b42318; font-weight:bold; }
+.advice { color:#555; font-size:0.9em; }
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red { color:#b42318; font-weight:bold; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th, td { border:1px solid #ccc; padding:6px; text-align:center; }
+th { background:#f0f0f0; }
 </style>
 </head>
 
@@ -25,123 +30,233 @@ input::placeholder { color:#999; font-style:italic; }
 <div class="card meta">
   <strong>Crane:</strong> GMK5130-1<br>
   <strong>Slew:</strong> 360°<br>
-  <span class="badge basic">Mode: Basic Mode</span>
+  <span id="metaBallast"><strong>Ballast:</strong> —</span><br>
+  <span id="modeBadge" class="badge basic">Mode: Basic Mode</span>
 </div>
 
 <div class="card">
 <h2>Inputs</h2>
 
-<label>Load (t)</label>
-<input id="load" type="number">
+<label><input type="radio" name="mode" value="basic" checked> Basic Mode</label>
+<label><input type="radio" name="mode" value="boom"> Boom-specific</label>
 
-<label>Block &amp; rigging (t)</label>
-<input id="rigging" type="number" placeholder="optional">
+<label>Ballast</label>
+<select id="ballast">
+  <option value="40_1t">40.1t</option>
+  <option value="23_5t">23.5t</option>
+  <option value="6t">6t</option>
+</select>
 
-<label>Working Radius (m)</label>
-<input id="radius" type="number">
+<div id="basicInputs">
+  <label>Load (t)</label>
+  <input id="load" type="number">
+
+  <label>Block &amp; rigging (t)</label>
+  <input id="rigging" type="number" placeholder="optional">
+
+  <label>Working Radius (m)</label>
+  <input id="radius" type="number">
+
+  <label>Obstruction Radius (m)</label>
+  <input id="obsRadius" type="number" placeholder="optional">
+
+  <label>Obstruction Height (m)</label>
+  <input id="obsHeight" type="number" placeholder="optional">
+
+  <label>Clearance Margin (m)</label>
+  <input id="margin" type="number" placeholder="optional">
+</div>
+
+<div id="boomInputs" style="display:none;">
+  <label>Select boom length</label>
+  <select id="boomSelect"></select>
+</div>
 </div>
 
 <div class="card">
 <h2>Result</h2>
-
-<div id="geometryWrapper" style="margin-bottom:16px;">
-<svg id="liftDiagram" viewBox="0 0 800 400" width="100%" height="260"
-     xmlns="http://www.w3.org/2000/svg">
-
-  <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
-
-  <circle id="boomPivot" cx="130" cy="300" r="6" fill="#000"/>
-
-  <line id="boom"
-        x1="130" y1="300"
-        x2="520" y2="140"
-        stroke="#FFD200"
-        stroke-width="8"
-        stroke-linecap="round"/>
-
-  <line id="radiusLine"
-        x1="130" y1="300"
-        x2="520" y2="300"
-        stroke="#888"
-        stroke-dasharray="6 4"
-        stroke-width="2"/>
-
-  <line id="tipHeightLine"
-        x1="520" y1="140"
-        x2="520" y2="300"
-        stroke="#888"
-        stroke-dasharray="6 4"
-        stroke-width="2"/>
-
-  <text id="radiusLabel" x="320" y="320" font-size="12" fill="#555">R</text>
-  <text id="tipHeightLabel" x="530" y="220" font-size="12" fill="#555">H</text>
-
-</svg>
-</div>
-
 <div id="result">Select inputs.</div>
 </div>
 
 <script>
-const SVG_SCALE = 6;
-const pivotX = 130;
-const pivotY = 300;
+let DATA = [], META = {};
 
-const boomLine = document.getElementById("boom");
-const radiusLine = document.getElementById("radiusLine");
-const tipHeightLine = document.getElementById("tipHeightLine");
-const radiusLabel = document.getElementById("radiusLabel");
-const tipHeightLabel = document.getElementById("tipHeightLabel");
-
+const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
 const riggingInput = document.getElementById("rigging");
 const radiusInput = document.getElementById("radius");
+const obsRadiusInput = document.getElementById("obsRadius");
+const obsHeightInput = document.getElementById("obsHeight");
+const marginInput = document.getElementById("margin");
+const boomSelect = document.getElementById("boomSelect");
 const result = document.getElementById("result");
+const metaBallast = document.getElementById("metaBallast");
+const modeBadge = document.getElementById("modeBadge");
+const basicInputs = document.getElementById("basicInputs");
+const boomInputs = document.getElementById("boomInputs");
+
+function utilClass(u) {
+  if (u >= 90) return "util-red";
+  if (u > 85) return "util-amber";
+  return "util-green";
+}
+function isAmber(u) { return u > 85 && u < 90; }
+
+function loadData(key) {
+  fetch(`loadchart_${key}.json`)
+    .then(r => r.json())
+    .then(d => {
+      DATA = d.charts;
+      META = d.meta || {};
+      let h = `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}`;
+      if (META.outriggers) h += `<br><strong>Outriggers:</strong> ${META.outriggers}`;
+      if (META.sli) h += `<br><strong>SLI:</strong> ${META.sli}`;
+      metaBallast.innerHTML = h;
+      populateBooms();
+      calculate();
+    });
+}
+
+function populateBooms() {
+  boomSelect.innerHTML = "";
+  [...new Set(DATA.map(r => r.boom))]
+    .sort((a,b)=>a-b)
+    .forEach(b => {
+      const o = document.createElement("option");
+      o.value = b;
+      o.textContent = `${b} m`;
+      boomSelect.appendChild(o);
+    });
+  if (boomSelect.options.length) boomSelect.selectedIndex = 0;
+}
 
 function calculate() {
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+
+  modeBadge.textContent = mode === "boom" ? "Mode: Boom-specific" : "Mode: Basic Mode";
+  modeBadge.className = "badge " + (mode === "boom" ? "boom" : "basic");
+
+  basicInputs.style.display = mode === "boom" ? "none" : "block";
+  boomInputs.style.display  = mode === "boom" ? "block" : "none";
+
+  /* ===== BOOM-SPECIFIC (ISOLATED) ===== */
+  if (mode === "boom") {
+    if (!boomSelect.value) populateBooms();
+    const boom = Number(boomSelect.value);
+    if (!boom) {
+      result.innerHTML = "Select a boom length.";
+      return;
+    }
+
+    const rows = DATA.filter(r => r.boom === boom)
+                     .sort((a,b)=>a.radius-b.radius);
+
+    let html = `
+      <h3>Boom-specific load chart</h3>
+      <p><b>Boom:</b> ${boom} m</p>
+      <table>
+        <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
+    `;
+    rows.forEach(r => html += `<tr><td>${r.radius}</td><td>${r.capacity}</td></tr>`);
+    html += "</table>";
+    result.innerHTML = html;
+    return;
+  }
+
+  /* ===== BASIC MODE (UNCHANGED) ===== */
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
   const totalLoad = load + rigging;
   const radius = +radiusInput.value;
 
-  if (!load || !radius) return;
+  if (!load || !radius) {
+    result.innerHTML = "Enter load and radius.";
+    return;
+  }
 
-  // ✅ PLACEHOLDER (known working)
-  const best = { boom: 41, capacity: 20 };
+  let candidates = [];
 
+DATA.forEach(r => {
+  if (r.radius < radius) return;
+  if (r.capacity < totalLoad) return;
+
+  // Geometry only applies if obstruction data exists
+  if (obsRadiusInput.value && obsHeightInput.value) {
+    const obsR = +obsRadiusInput.value;
+    const obsH = +obsHeightInput.value;
+    const margin = marginInput.value ? +marginInput.value : 0;
+
+    const horiz = r.boom * r.boom - radius * radius;
+    if (horiz <= 0) return;
+
+    const tipHeight = Math.sqrt(horiz);
+    const requiredHeight = (obsH * radius / obsR) + margin;
+
+    if (tipHeight < requiredHeight) return;
+  }
+
+  candidates.push({
+    boom: r.boom,
+    config: r.config,
+    util: totalLoad / r.capacity * 100
+  });
+});
+
+candidates.sort((a,b)=>a.util-b.util);
+
+  if (!candidates.length || candidates[0].util >= 90) {
+    result.innerHTML = `
+      <h3 class="fail">Lift is not possible with the selected ballast</h3>
+      <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
+      <p>Utilisation exceeds planning limit (90%).</p>
+    `;
+    return;
+  }
+
+  const best = candidates[0];
   const tipHeight = Math.sqrt(
-    Math.max(0, best.boom * best.boom - radius * radius)
-  );
+  Math.max(0, best.boom * best.boom - radius * radius)
+);
+result.innerHTML = `
+  <h3>Basic Mode Result</h3>
 
-  const radiusPx = radius * SVG_SCALE;
-  const heightPx = tipHeight * SVG_SCALE;
+  <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
+  <p><b>Configuration:</b> ${best.config}</p>
+  <p><b>SLI code:</b> ${META.sli || "—"}</p>
+  <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
+  <p><b>Boom length:</b> ${best.boom} m</p>
+  <p><b>Outriggers:</b> ${META.outriggers || "—"}</p>
 
-  const boomX = pivotX + radiusPx;
-  const boomY = pivotY - heightPx;
+  <p><b>Utilisation:</b>
+    <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+  </p>
 
-  boomLine.setAttribute("x2", boomX);
-  boomLine.setAttribute("y2", boomY);
+  <p><b>Tip height:</b> ${tipHeight.toFixed(2)} m</p>
 
-  radiusLine.setAttribute("x2", boomX);
-  radiusLine.setAttribute("y2", pivotY);
-
-  tipHeightLine.setAttribute("x1", boomX);
-  tipHeightLine.setAttribute("y1", boomY);
-  tipHeightLine.setAttribute("x2", boomX);
-  tipHeightLine.setAttribute("y2", pivotY);
-
-  radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
-  tipHeightLabel.textContent = `H = ${tipHeight.toFixed(1)} m`;
-
-  result.innerHTML = `
-    <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
-    <p><b>Boom:</b> ${best.boom} m</p>
-    <p><b>Tip height:</b> ${tipHeight.toFixed(2)} m</p>
-  `;
+  ${isAmber(best.util) ? `
+    <p class="advice">
+      <b>Risk note:</b> Utilisation is within amber range.<br>
+      Reduced capacity margin — verify lift conditions.
+    </p>
+  ` : ``}
+`;
 }
 
-[loadInput, riggingInput, radiusInput]
-  .forEach(e => e.addEventListener("input", calculate));
+document.querySelectorAll('input[name="mode"]').forEach(r =>
+  r.addEventListener("change", calculate)
+);
+
+[loadInput, riggingInput, radiusInput,
+ obsRadiusInput, obsHeightInput, marginInput]
+.forEach(e => e.addEventListener("input", () => {
+  if (document.querySelector('input[name="mode"]:checked').value !== "boom")
+    calculate();
+}));
+
+boomSelect.addEventListener("change", calculate);
+ballast.addEventListener("change", () => loadData(ballast.value));
+
+loadData(ballast.value);
 </script>
 
 </body>
