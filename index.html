@@ -51,13 +51,13 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <input id="radius" type="number">
 
 <label>Obstruction Radius (m)</label>
-<input id="obsRadius" type="number">
+<input id="obsRadius" type="number" placeholder="optional">
 
 <label>Obstruction Height (m)</label>
-<input id="obsHeight" type="number">
+<input id="obsHeight" type="number" placeholder="optional">
 
 <label>Building Clearance (m)</label>
-<input id="margin" type="number">
+<input id="margin" type="number" placeholder="optional">
 </div>
 
 <div class="card">
@@ -65,16 +65,14 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 
 <svg viewBox="0 0 800 400" width="100%" height="260">
   <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
-
   <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
 
   <line id="boom" stroke="#FFD200" stroke-width="8" stroke-linecap="round"/>
   <line id="radiusLine" stroke="#888" stroke-dasharray="6 4"/>
   <line id="tipHeightLine" stroke="#888" stroke-dasharray="6 4"/>
 
-  <rect id="obstruction" width="30" fill="#ccc" opacity="0.9"/>
-
-  <line id="clearanceLine" stroke-dasharray="4 4" stroke-width="3"/>
+  <rect id="obstruction" width="30" fill="#ccc"/>
+  <line id="clearanceLine" stroke="#b42318" stroke-dasharray="4 4" stroke-width="3"/>
 </svg>
 
 <div id="result">Select inputs.</div>
@@ -83,87 +81,104 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <script>
 const SVG_SCALE = 6;
 const groundY = 340;
+const PIVOT_HEIGHT_M = 2;
+const BOOM_RADIUS_M = 0.6;
+
 const pivotX = 130;
-const pivotY = groundY - (2 * SVG_SCALE);
+const pivotY = groundY - PIVOT_HEIGHT_M * SVG_SCALE;
 
-const boom = document.getElementById("boom");
-const obstruction = document.getElementById("obstruction");
-const clearanceLine = document.getElementById("clearanceLine");
 const pivot = document.getElementById("pivot");
-const result = document.getElementById("result");
+const boomLine = document.getElementById("boom");
+const radiusLine = document.getElementById("radiusLine");
+const tipHeightLine = document.getElementById("tipHeightLine");
+const obstructionRect = document.getElementById("obstruction");
+const clearanceLine = document.getElementById("clearanceLine");
 
-const loadInput = load;
-const riggingInput = rigging;
-const radiusInput = radius;
-const obsRadiusInput = obsRadius;
-const obsHeightInput = obsHeight;
-const marginInput = margin;
+const loadInput = document.getElementById("load");
+const riggingInput = document.getElementById("rigging");
+const radiusInput = document.getElementById("radius");
+const obsRadiusInput = document.getElementById("obsRadius");
+const obsHeightInput = document.getElementById("obsHeight");
+const marginInput = document.getElementById("margin");
 
-function pointLineDistance(px, py, x1, y1, x2, y2) {
-  const A = py - y1;
-  const B = x1 - px;
-  const C = x2 - x1;
-  const D = y2 - y1;
-  return Math.abs(A*C + B*D) / Math.sqrt(C*C + D*D);
-}
+let DATA = [];
 
 function calculate() {
   const load = +loadInput.value;
+  const rigging = +riggingInput.value || 0;
   const radius = +radiusInput.value;
   const obsR = +obsRadiusInput.value;
   const obsH = +obsHeightInput.value;
-  const clearanceReq = +marginInput.value;
+  const clearanceReq = +marginInput.value || 0;
 
-  if (!load || !radius || !obsR || !obsH) return;
+  if (!load || !radius) return;
 
-  boom.style.visibility = obstruction.style.visibility = clearanceLine.style.visibility = "visible";
+  const tipHeight = Math.sqrt(45*45 - radius*radius);
 
-  const tipHeight = Math.sqrt(Math.max(0, 36*36 - radius*radius)); // demo geometry
+  const boomX = pivotX + radius * SVG_SCALE;
+  const boomY = pivotY - tipHeight * SVG_SCALE;
 
-  const boomX2 = pivotX + radius * SVG_SCALE;
-  const boomY2 = pivotY - tipHeight * SVG_SCALE;
+  boomLine.style.visibility = "visible";
+  obstructionRect.style.visibility = "visible";
+  clearanceLine.style.visibility = "visible";
 
-  boom.setAttribute("x1", pivotX);
-  boom.setAttribute("y1", pivotY);
-  boom.setAttribute("x2", boomX2);
-  boom.setAttribute("y2", boomY2);
+  boomLine.setAttribute("x1", pivotX);
+  boomLine.setAttribute("y1", pivotY);
+  boomLine.setAttribute("x2", boomX);
+  boomLine.setAttribute("y2", boomY);
 
-  const obsX = pivotX + obsR * SVG_SCALE - 15;
+  const obsX = pivotX + obsR * SVG_SCALE;
   const obsTopY = groundY - obsH * SVG_SCALE;
 
-  obstruction.setAttribute("x", obsX);
-  obstruction.setAttribute("y", obsTopY);
-  obstruction.setAttribute("height", obsH * SVG_SCALE);
+  obstructionRect.setAttribute("x", obsX - 15);
+  obstructionRect.setAttribute("y", obsTopY);
+  obstructionRect.setAttribute("height", obsH * SVG_SCALE);
 
-  const cornerX = obsX;
+  const cornerX = obsX - 15;
   const cornerY = obsTopY;
 
-  const distPx = pointLineDistance(
-    cornerX, cornerY,
-    pivotX, pivotY,
-    boomX2, boomY2
-  );
+  const dx = boomX - pivotX;
+  const dy = boomY - pivotY;
+  const len = Math.sqrt(dx*dx + dy*dy);
 
-  const distM = distPx / SVG_SCALE;
-  const pass = distM >= clearanceReq;
+  const t = ((cornerX - pivotX)*dx + (cornerY - pivotY)*dy)/(len*len);
+  const hx = pivotX + t*dx;
+  const hy = pivotY + t*dy;
+
+  const vx = cornerX - hx;
+  const vy = cornerY - hy;
+  const vlen = Math.sqrt(vx*vx + vy*vy);
+
+  const nx = vx / vlen;
+  const ny = vy / vlen;
+
+  const boomEdgeX = hx + nx * BOOM_RADIUS_M * SVG_SCALE;
+  const boomEdgeY = hy + ny * BOOM_RADIUS_M * SVG_SCALE;
+
+  const measuredClearance = Math.max(0, (vlen - BOOM_RADIUS_M*SVG_SCALE)/SVG_SCALE);
 
   clearanceLine.setAttribute("x1", cornerX);
   clearanceLine.setAttribute("y1", cornerY);
-  clearanceLine.setAttribute("x2", cornerX + (boomX2 - pivotX));
-  clearanceLine.setAttribute("y2", cornerY + (boomY2 - pivotY));
-  clearanceLine.setAttribute("stroke", pass ? "#1a7f37" : "#b42318");
+  clearanceLine.setAttribute("x2", boomEdgeX);
+  clearanceLine.setAttribute("y2", boomEdgeY);
 
-  result.innerHTML = `
-    <p><b>Measured clearance:</b> ${distM.toFixed(2)} m</p>
+  clearanceLine.setAttribute(
+    "stroke",
+    measuredClearance >= clearanceReq ? "#1a7f37" : "#b42318"
+  );
+
+  document.getElementById("result").innerHTML = `
+    <p><b>Measured clearance:</b> ${measuredClearance.toFixed(2)} m</p>
     <p><b>Required clearance:</b> ${clearanceReq.toFixed(2)} m</p>
-    <p class="${pass ? "util-green" : "fail"}">
-      ${pass ? "Clearance OK" : "Clearance FAIL"}
+    <p class="${measuredClearance >= clearanceReq ? 'util-green' : 'util-red'}">
+      Clearance ${measuredClearance >= clearanceReq ? 'PASS' : 'FAIL'}
     </p>
   `;
 }
 
-[loadInput, radiusInput, obsRadiusInput, obsHeightInput, marginInput]
-  .forEach(e => e.addEventListener("input", calculate));
+[loadInput, riggingInput, radiusInput,
+ obsRadiusInput, obsHeightInput, marginInput]
+.forEach(e => e.addEventListener("input", calculate));
 </script>
 
 </body>
