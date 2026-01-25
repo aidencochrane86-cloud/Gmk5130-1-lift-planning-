@@ -70,13 +70,10 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <svg id="liftDiagram" viewBox="0 0 800 400" width="100%" height="260"
      xmlns="http://www.w3.org/2000/svg">
 
-  <!-- Ground -->
   <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
 
-  <!-- Pivot (2 m above ground) -->
   <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
 
-  <!-- Boom -->
   <line id="boom"
         x1="130" y1="0"
         x2="300" y2="200"
@@ -84,7 +81,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
         stroke-width="8"
         stroke-linecap="round"/>
 
-  <!-- Radius -->
   <line id="radiusLine"
         x1="130" y1="0"
         x2="300" y2="0"
@@ -92,7 +88,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
         stroke-dasharray="6 4"
         stroke-width="2"/>
 
-  <!-- Tip height -->
   <line id="tipHeightLine"
         x1="300" y1="200"
         x2="300" y2="0"
@@ -103,11 +98,9 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <text id="radiusLabel" x="260" y="360" font-size="12" fill="#555"></text>
   <text id="tipHeightLabel" x="310" y="200" font-size="12" fill="#555"></text>
 
-  <!-- Obstruction -->
   <rect id="obstruction" x="0" y="0" width="30" height="0"
         fill="#ccc" opacity="0.9"/>
 
-  <!-- Clearance -->
   <line id="clearanceLine"
         x1="0" y1="0"
         x2="0" y2="0"
@@ -185,7 +178,7 @@ function calculate() {
 
   const obsR = +obsRadiusInput.value;
   const obsH = +obsHeightInput.value;
-  const margin = marginInput.value ? +marginInput.value : 0;
+  const clearance = marginInput.value ? +marginInput.value : 0;
   const obstructionActive = obsR && obsH;
 
   let candidates = [];
@@ -194,12 +187,17 @@ function calculate() {
     if (r.radius < radius) return;
     if (r.capacity < totalLoad) return;
 
-    const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
+    const boomHeightAtObs =
+      obsR && r.boom > obsR
+        ? Math.sqrt(Math.max(0, r.boom*r.boom - obsR*obsR))
+        : 0;
 
     if (obstructionActive) {
-      const required = (obsH * radius / obsR) + margin;
-      if (tipHeight < required) return;
+      const requiredHeight = obsH + clearance;
+      if (boomHeightAtObs < requiredHeight) return;
     }
+
+    const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
 
     candidates.push({
       boom: r.boom,
@@ -241,25 +239,6 @@ function calculate() {
 
   radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
   tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
-
-  if (obstructionActive) {
-    const obsX = pivotX + obsR * SVG_SCALE;
-    const obsTopY = groundY - obsH * SVG_SCALE;
-
-    obstructionRect.setAttribute("x", obsX - 15);
-    obstructionRect.setAttribute("y", obsTopY);
-    obstructionRect.setAttribute("height", obsH * SVG_SCALE);
-
-    const required = (obsH * radius / obsR) + margin;
-    const reqY = pivotY - required * SVG_SCALE;
-
-    clearanceLine.setAttribute("x1", obsX);
-    clearanceLine.setAttribute("x2", obsX);
-    clearanceLine.setAttribute("y1", groundY);
-    clearanceLine.setAttribute("y2", reqY);
-  } else {
-    obstructionRect.setAttribute("height", 0);
-  }
 
   result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
