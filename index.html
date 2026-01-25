@@ -64,9 +64,13 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <svg id="liftDiagram" viewBox="0 0 800 400" width="100%" height="260"
      xmlns="http://www.w3.org/2000/svg">
 
+  <!-- Ground -->
   <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
+
+  <!-- Crane pivot -->
   <circle cx="130" cy="300" r="6" fill="#000"/>
 
+  <!-- Boom -->
   <line id="boom"
         x1="130" y1="300"
         x2="300" y2="200"
@@ -74,6 +78,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
         stroke-width="8"
         stroke-linecap="round"/>
 
+  <!-- Radius -->
   <line id="radiusLine"
         x1="130" y1="300"
         x2="300" y2="300"
@@ -81,6 +86,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
         stroke-dasharray="6 4"
         stroke-width="2"/>
 
+  <!-- Tip height -->
   <line id="tipHeightLine"
         x1="300" y1="200"
         x2="300" y2="300"
@@ -90,6 +96,21 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 
   <text id="radiusLabel" x="260" y="320" font-size="12" fill="#555"></text>
   <text id="tipHeightLabel" x="310" y="240" font-size="12" fill="#555"></text>
+
+  <!-- ===== VISUAL OBSTRUCTION (NEW) ===== -->
+  <rect id="obstruction"
+        x="0" y="0"
+        width="30" height="0"
+        fill="#ccc"
+        opacity="0.9"/>
+
+  <!-- Required clearance line -->
+  <line id="clearanceLine"
+        x1="0" y1="0"
+        x2="0" y2="0"
+        stroke="#e74c3c"
+        stroke-dasharray="4 4"
+        stroke-width="3"/>
 </svg>
 </div>
 
@@ -106,6 +127,9 @@ const radiusLine = document.getElementById("radiusLine");
 const tipHeightLine = document.getElementById("tipHeightLine");
 const radiusLabel = document.getElementById("radiusLabel");
 const tipHeightLabel = document.getElementById("tipHeightLabel");
+
+const obstructionRect = document.getElementById("obstruction");
+const clearanceLine = document.getElementById("clearanceLine");
 
 let DATA = [], META = {};
 
@@ -191,6 +215,7 @@ function calculate() {
   boomLine.setAttribute("x2", boomX);
   boomLine.setAttribute("y2", boomY);
   radiusLine.setAttribute("x2", boomX);
+
   tipHeightLine.setAttribute("x1", boomX);
   tipHeightLine.setAttribute("y1", boomY);
   tipHeightLine.setAttribute("x2", boomX);
@@ -198,6 +223,28 @@ function calculate() {
 
   radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
   tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
+
+  /* ===== VISUAL OBSTRUCTION UPDATE ===== */
+  if (obstructionActive) {
+    const obsX = pivotX + obsR * SVG_SCALE;
+    const obsTopY = pivotY - obsH * SVG_SCALE;
+
+    obstructionRect.setAttribute("x", obsX - 15);
+    obstructionRect.setAttribute("y", obsTopY);
+    obstructionRect.setAttribute("height", obsH * SVG_SCALE);
+
+    const requiredHeight = (obsH * radius / obsR) + margin;
+    const reqY = pivotY - requiredHeight * SVG_SCALE;
+
+    clearanceLine.setAttribute("x1", obsX);
+    clearanceLine.setAttribute("x2", obsX);
+    clearanceLine.setAttribute("y1", pivotY);
+    clearanceLine.setAttribute("y2", reqY);
+  } else {
+    obstructionRect.setAttribute("height", 0);
+    clearanceLine.setAttribute("y1", 0);
+    clearanceLine.setAttribute("y2", 0);
+  }
 
   result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
