@@ -75,6 +75,105 @@ th { background:#f0f0f0; }
 
 <div class="card">
 <h2>Result</h2>
+
+<!-- ===== Geometry Diagram ===== -->
+<div id="geometryWrapper" style="margin-bottom:16px;">
+  <svg
+    id="liftDiagram"
+    viewBox="0 0 800 400"
+    width="100%"
+    height="260"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+
+    <!-- Ground -->
+    <line id="groundLine"
+      x1="0" y1="340"
+      x2="800" y2="340"
+      stroke="#333" stroke-width="3" />
+
+    <!-- Crane base -->
+    <rect id="craneBase"
+      x="80" y="300"
+      width="100" height="40"
+      fill="#555" />
+
+    <!-- Boom pivot -->
+    <circle id="boomPivot"
+      cx="130" cy="300"
+      r="6"
+      fill="#000" />
+
+    <!-- Boom (YELLOW) -->
+    <line id="boom"
+      x1="130" y1="300"
+      x2="520" y2="140"
+      stroke="#FFD200"
+      stroke-width="8"
+      stroke-linecap="round" />
+
+    <!-- Load line -->
+    <line id="loadLine"
+      x1="520" y1="140"
+      x2="520" y2="250"
+      stroke="#000"
+      stroke-width="2" />
+
+    <!-- Load -->
+    <rect id="load"
+      x="490" y="250"
+      width="60" height="40"
+      fill="#777" />
+
+    <!-- Radius line -->
+    <line id="radiusLine"
+      x1="130" y1="300"
+      x2="520" y2="300"
+      stroke="#888"
+      stroke-dasharray="6 4"
+      stroke-width="2" />
+
+    <text id="radiusLabel"
+      x="320" y="320"
+      font-size="12"
+      fill="#555"
+      text-anchor="middle">
+      Radius
+    </text>
+
+    <!-- Tip height line -->
+    <line id="tipHeightLine"
+      x1="520" y1="140"
+      x2="520" y2="300"
+      stroke="#888"
+      stroke-dasharray="6 4"
+      stroke-width="2" />
+
+    <text id="tipHeightLabel"
+      x="530" y="220"
+      font-size="12"
+      fill="#555">
+      Tip height
+    </text>
+
+    <!-- Obstruction -->
+    <rect id="obstruction"
+      x="360" y="240"
+      width="80" height="100"
+      fill="#ccc"
+      opacity="0.9" />
+
+    <!-- Clearance line -->
+    <line id="clearanceLine"
+      x1="400" y1="240"
+      x2="400" y2="140"
+      stroke="#2ecc71"
+      stroke-width="4" />
+
+  </svg>
+</div>
+
+<!-- ===== Text Result ===== -->
 <div id="result">Select inputs.</div>
 </div>
 
