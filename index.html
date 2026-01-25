@@ -47,7 +47,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <label>Working Radius (m)</label>
 <input id="radius" type="number">
 
-<!-- ✅ RESTORED OBSTRUCTION INPUTS -->
 <label>Obstruction Radius (m)</label>
 <input id="obsRadius" type="number" placeholder="optional">
 
@@ -56,14 +55,11 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 
 <label>Clearance Margin (m)</label>
 <input id="margin" type="number" placeholder="optional">
-<!-- ✅ END RESTORED -->
-
 </div>
 
 <div class="card">
 <h2>Result</h2>
 
-<!-- SVG DIAGRAM -->
 <div style="margin-bottom:16px;">
 <svg id="liftDiagram" viewBox="0 0 800 400" width="100%" height="260"
      xmlns="http://www.w3.org/2000/svg">
@@ -117,6 +113,9 @@ const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
 const riggingInput = document.getElementById("rigging");
 const radiusInput = document.getElementById("radius");
+const obsRadiusInput = document.getElementById("obsRadius");
+const obsHeightInput = document.getElementById("obsHeight");
+const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
 
@@ -148,17 +147,32 @@ function calculate() {
 
   if (!load || !radius) return;
 
+  const obsR = +obsRadiusInput.value;
+  const obsH = +obsHeightInput.value;
+  const margin = marginInput.value ? +marginInput.value : 0;
+  const obstructionActive = obsR && obsH;
+
   let candidates = [];
 
   DATA.forEach(r => {
     if (r.radius < radius) return;
     if (r.capacity < totalLoad) return;
 
+    const tipHeight = Math.sqrt(
+      Math.max(0, r.boom * r.boom - radius * radius)
+    );
+
+    if (obstructionActive) {
+      const requiredHeight = (obsH * radius / obsR) + margin;
+      if (tipHeight < requiredHeight) return;
+    }
+
     candidates.push({
       boom: r.boom,
       capacity: r.capacity,
       config: r.config,
-      util: totalLoad / r.capacity * 100
+      util: totalLoad / r.capacity * 100,
+      tipHeight
     });
   });
 
@@ -171,12 +185,8 @@ function calculate() {
 
   const best = candidates[0];
 
-  const tipHeight = Math.sqrt(
-    Math.max(0, best.boom * best.boom - radius * radius)
-  );
-
   const boomX = pivotX + radius * SVG_SCALE;
-  const boomY = pivotY - tipHeight * SVG_SCALE;
+  const boomY = pivotY - best.tipHeight * SVG_SCALE;
 
   boomLine.setAttribute("x2", boomX);
   boomLine.setAttribute("y2", boomY);
@@ -187,7 +197,7 @@ function calculate() {
   tipHeightLine.setAttribute("y2", pivotY);
 
   radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
-  tipHeightLabel.textContent = `H = ${tipHeight.toFixed(1)} m`;
+  tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
 
   result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
@@ -199,11 +209,12 @@ function calculate() {
     <p><b>Utilisation:</b>
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
-    <p><b>Tip height:</b> ${tipHeight.toFixed(2)} m</p>
+    <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
   `;
 }
 
-[loadInput, riggingInput, radiusInput]
+[loadInput, riggingInput, radiusInput,
+ obsRadiusInput, obsHeightInput, marginInput]
   .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
