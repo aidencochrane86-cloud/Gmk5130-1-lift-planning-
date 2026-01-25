@@ -94,10 +94,15 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
         stroke-dasharray="6 4"
         stroke-width="2"/>
 
+  <text id="radiusLabel" x="260" y="360" font-size="12" fill="#555"></text>
+  <text id="tipHeightLabel" x="310" y="200" font-size="12" fill="#555"></text>
+
   <rect id="obstruction" x="0" y="0" width="30" height="0"
         fill="#ccc" opacity="0.9"/>
 
   <line id="clearanceLine"
+        x1="0" y1="0"
+        x2="0" y2="0"
         stroke="#e74c3c"
         stroke-dasharray="4 4"
         stroke-width="3"/>
@@ -117,10 +122,14 @@ const pivotY = groundY - (PIVOT_HEIGHT_M * SVG_SCALE);
 
 const pivot = document.getElementById("pivot");
 const boomLine = document.getElementById("boom");
+const radiusLine = document.getElementById("radiusLine");
+const tipHeightLine = document.getElementById("tipHeightLine");
+const radiusLabel = document.getElementById("radiusLabel");
+const tipHeightLabel = document.getElementById("tipHeightLabel");
 const obstructionRect = document.getElementById("obstruction");
 const clearanceLine = document.getElementById("clearanceLine");
 
-let DATA = [];
+let DATA = [], META = {};
 
 const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
@@ -128,71 +137,140 @@ const riggingInput = document.getElementById("rigging");
 const radiusInput = document.getElementById("radius");
 const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
+const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
+const metaBallast = document.getElementById("metaBallast");
+
+function utilClass(u) {
+  if (u >= 90) return "util-red";
+  if (u > 85) return "util-amber";
+  return "util-green";
+}
 
 function loadData(key) {
   fetch(`loadchart_${key}.json`)
     .then(r => r.json())
-    .then(d => { DATA = d.charts; calculate(); });
+    .then(d => {
+      DATA = d.charts;
+      META = d.meta || {};
+      metaBallast.innerHTML =
+        `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}<br>` +
+        `<strong>Outriggers:</strong> ${META.outriggers || "—"}<br>` +
+        `<strong>SLI:</strong> ${META.sli || "—"}`;
+      calculate();
+    });
 }
 
 function calculate() {
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
+  const totalLoad = load + rigging;
   const radius = +radiusInput.value;
+
   if (!load || !radius) return;
 
-  const best = DATA.find(r => r.radius >= radius);
-  if (!best) return;
+  pivot.style.visibility = "visible";
+  boomLine.style.visibility = "visible";
+  radiusLine.style.visibility = "visible";
+  tipHeightLine.style.visibility = "visible";
+
+  const obsR = +obsRadiusInput.value;
+  const obsH = +obsHeightInput.value;
+  const obstructionActive = obsR && obsH;
+
+  let candidates = [];
+
+  DATA.forEach(r => {
+    if (r.radius < radius) return;
+    if (r.capacity < totalLoad) return;
+
+    const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
+    candidates.push({
+      boom: r.boom,
+      capacity: r.capacity,
+      config: r.config,
+      util: totalLoad / r.capacity * 100,
+      tipHeight
+    });
+  });
+
+  if (!candidates.length) return;
+
+  const best = candidates.sort((a,b)=>a.util-b.util)[0];
 
   const boomX = pivotX + radius * SVG_SCALE;
-  const boomY = pivotY - Math.sqrt(best.boom**2 - radius**2) * SVG_SCALE;
+  const boomY = pivotY - best.tipHeight * SVG_SCALE;
 
-  boomLine.style.visibility = "visible";
   boomLine.setAttribute("x1", pivotX);
   boomLine.setAttribute("y1", pivotY);
   boomLine.setAttribute("x2", boomX);
   boomLine.setAttribute("y2", boomY);
 
-  const obsR = +obsRadiusInput.value;
-  const obsH = +obsHeightInput.value;
-  if (!(obsR && obsH)) return;
+  radiusLine.setAttribute("x1", pivotX);
+  radiusLine.setAttribute("y1", pivotY);
+  radiusLine.setAttribute("x2", boomX);
+  radiusLine.setAttribute("y2", pivotY);
 
-  const obsX = pivotX + obsR * SVG_SCALE;
-  const obsTopY = groundY - obsH * SVG_SCALE;
+  tipHeightLine.setAttribute("x1", boomX);
+  tipHeightLine.setAttribute("y1", boomY);
+  tipHeightLine.setAttribute("x2", boomX);
+  tipHeightLine.setAttribute("y2", pivotY);
 
-  obstructionRect.style.visibility = "visible";
-  obstructionRect.setAttribute("x", obsX - 15);
-  obstructionRect.setAttribute("y", obsTopY);
-  obstructionRect.setAttribute("height", obsH * SVG_SCALE);
+  radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
+  tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
 
-  // 🔴 CORRECT STEP A: closest point on boom
-  const ax = pivotX, ay = pivotY;
-  const bx = boomX,  by = boomY;
-  const px = obsX - 15, py = obsTopY;
+  if (obstructionActive) {
+    const obsX = pivotX + obsR * SVG_SCALE;
+    const obsTopY = groundY - obsH * SVG_SCALE;
 
-  const abx = bx - ax, aby = by - ay;
-  const apx = px - ax, apy = py - ay;
-  const t = Math.max(0, Math.min(1,
-    (apx*abx + apy*aby) / (abx*abx + aby*aby)
-  ));
+    obstructionRect.style.visibility = "visible";
+    clearanceLine.style.visibility = "visible";
 
-  const cx = ax + t * abx;
-  const cy = ay + t * aby;
+    obstructionRect.setAttribute("x", obsX - 15);
+    obstructionRect.setAttribute("y", obsTopY);
+    obstructionRect.setAttribute("height", obsH * SVG_SCALE);
 
-  clearanceLine.style.visibility = "visible";
-  clearanceLine.setAttribute("x1", px);
-  clearanceLine.setAttribute("y1", py);
-  clearanceLine.setAttribute("x2", cx);
-  clearanceLine.setAttribute("y2", cy);
+    // STEP A – top-left corner clearance (visual only)
+    const px = obsX - 15;
+    const py = obsTopY;
+
+    const ax = pivotX;
+    const ay = pivotY;
+    const bx = boomX;
+    const by = boomY;
+
+    const abx = bx - ax;
+    const aby = by - ay;
+    const apx = px - ax;
+    const apy = py - ay;
+
+    let t = (apx * abx + apy * aby) / (abx * abx + aby * aby);
+    t = Math.max(0, Math.min(1, t));
+
+    const cx = ax + t * abx;
+    const cy = ay + t * aby;
+
+    clearanceLine.setAttribute("x1", px);
+    clearanceLine.setAttribute("y1", py);
+    clearanceLine.setAttribute("x2", cx);
+    clearanceLine.setAttribute("y2", cy);
+  } else {
+    obstructionRect.style.visibility = "hidden";
+    clearanceLine.style.visibility = "hidden";
+  }
 
   result.innerHTML = `
-    <p><b>Boom length:</b> ${best.boom.toFixed(2)} m</p>
-    <p><b>Tip height:</b> ${(Math.abs(boomY - pivotY)/SVG_SCALE).toFixed(2)} m</p>
+    <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
+    <p><b>Boom length:</b> ${best.boom} m</p>
+    <p><b>Utilisation:</b>
+      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+    </p>
+    <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
   `;
 }
 
-[loadInput, riggingInput, radiusInput, obsRadiusInput, obsHeightInput]
+[loadInput, riggingInput, radiusInput,
+ obsRadiusInput, obsHeightInput, marginInput]
   .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
