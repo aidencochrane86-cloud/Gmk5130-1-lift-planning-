@@ -17,6 +17,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red { color:#b42318; font-weight:bold; }
 
+/* Hide SVG dynamics until valid calc */
 #boom, #radiusLine, #tipHeightLine, #obstruction, #clearanceLine {
   visibility: hidden;
 }
@@ -68,29 +69,47 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <svg id="liftDiagram" viewBox="0 0 800 400" width="100%" height="260"
      xmlns="http://www.w3.org/2000/svg">
 
+  <!-- Ground -->
   <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
 
+  <!-- Pivot (2 m above ground) -->
   <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
 
+  <!-- Boom -->
   <line id="boom"
+        x1="130" y1="0"
+        x2="300" y2="200"
         stroke="#FFD200"
         stroke-width="8"
         stroke-linecap="round"/>
 
+  <!-- Radius -->
   <line id="radiusLine"
+        x1="130" y1="0"
+        x2="300" y2="0"
         stroke="#888"
         stroke-dasharray="6 4"
         stroke-width="2"/>
 
+  <!-- Tip height -->
   <line id="tipHeightLine"
+        x1="300" y1="200"
+        x2="300" y2="0"
         stroke="#888"
         stroke-dasharray="6 4"
         stroke-width="2"/>
 
-  <rect id="obstruction" width="30" fill="#ccc" opacity="0.9"/>
+  <text id="radiusLabel" x="260" y="360" font-size="12" fill="#555"></text>
+  <text id="tipHeightLabel" x="310" y="200" font-size="12" fill="#555"></text>
 
-  <!-- VISUAL CLEARANCE LINE -->
+  <!-- Obstruction -->
+  <rect id="obstruction" x="0" y="0" width="30" height="0"
+        fill="#ccc" opacity="0.9"/>
+
+  <!-- Clearance reference (vertical – Step 1 only) -->
   <line id="clearanceLine"
+        x1="0" y1="0"
+        x2="0" y2="0"
         stroke="#e74c3c"
         stroke-dasharray="4 4"
         stroke-width="3"/>
@@ -104,14 +123,16 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 const SVG_SCALE = 6;
 const groundY = 340;
 const PIVOT_HEIGHT_M = 2;
-const OBSTRUCTION_WIDTH = 30;
 
 const pivotX = 130;
 const pivotY = groundY - (PIVOT_HEIGHT_M * SVG_SCALE);
 
+const pivot = document.getElementById("pivot");
 const boomLine = document.getElementById("boom");
 const radiusLine = document.getElementById("radiusLine");
 const tipHeightLine = document.getElementById("tipHeightLine");
+const radiusLabel = document.getElementById("radiusLabel");
+const tipHeightLabel = document.getElementById("tipHeightLabel");
 const obstructionRect = document.getElementById("obstruction");
 const clearanceLine = document.getElementById("clearanceLine");
 
@@ -125,53 +146,82 @@ const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
+const metaBallast = document.getElementById("metaBallast");
+
+function utilClass(u) {
+  if (u >= 90) return "util-red";
+  if (u > 85) return "util-amber";
+  return "util-green";
+}
 
 function loadData(key) {
   fetch(`loadchart_${key}.json`)
     .then(r => r.json())
-    .then(d => { DATA = d.charts; calculate(); });
-}
-
-function closestPointOnSegment(px, py, x1, y1, x2, y2) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len2 = dx*dx + dy*dy;
-  if (len2 === 0) return { x: x1, y: y1 };
-
-  let t = ((px - x1)*dx + (py - y1)*dy) / len2;
-  t = Math.max(0, Math.min(1, t));
-
-  return {
-    x: x1 + t * dx,
-    y: y1 + t * dy
-  };
+    .then(d => {
+      DATA = d.charts;
+      META = d.meta || {};
+      metaBallast.innerHTML =
+        `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}<br>` +
+        `<strong>Outriggers:</strong> ${META.outriggers || "—"}<br>` +
+        `<strong>SLI:</strong> ${META.sli || "—"}`;
+      calculate();
+    });
 }
 
 function calculate() {
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
+  const totalLoad = load + rigging;
   const radius = +radiusInput.value;
-  if (!load || !radius) return;
+
+  if (!load || !radius) {
+    result.innerHTML = "Enter load and radius to view lift geometry.";
+    return;
+  }
+
+  pivot.style.visibility = "visible";
+  boomLine.style.visibility = "visible";
+  radiusLine.style.visibility = "visible";
+  tipHeightLine.style.visibility = "visible";
 
   const obsR = +obsRadiusInput.value;
   const obsH = +obsHeightInput.value;
+  const margin = marginInput.value ? +marginInput.value : 0;
   const obstructionActive = obsR && obsH;
 
-  let best = null;
+  let candidates = [];
 
   DATA.forEach(r => {
     if (r.radius < radius) return;
-    if (r.capacity < load + rigging) return;
-    const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
-    if (!best || tipHeight > best.tipHeight) {
-      best = { ...r, tipHeight };
+    if (r.capacity < totalLoad) return;
+
+    const tipHeight = Math.sqrt(
+      Math.max(0, r.boom * r.boom - radius * radius)
+    );
+
+    if (obstructionActive) {
+      const required = (obsH * radius / obsR) + margin;
+      if (tipHeight < required) return;
     }
+
+    candidates.push({
+      boom: r.boom,
+      capacity: r.capacity,
+      config: r.config,
+      util: totalLoad / r.capacity * 100,
+      tipHeight
+    });
   });
 
-  if (!best) {
+  if (!candidates.length) {
     result.innerHTML = `<p class="fail">Lift not possible</p>`;
     return;
   }
+
+  candidates.sort((a,b)=>a.util-b.util);
+  const best = candidates[0];
+
+  pivot.setAttribute("cy", pivotY);
 
   const boomX = pivotX + radius * SVG_SCALE;
   const boomY = pivotY - best.tipHeight * SVG_SCALE;
@@ -180,42 +230,55 @@ function calculate() {
   boomLine.setAttribute("y1", pivotY);
   boomLine.setAttribute("x2", boomX);
   boomLine.setAttribute("y2", boomY);
-  boomLine.style.visibility = "visible";
+
+  radiusLine.setAttribute("x1", pivotX);
+  radiusLine.setAttribute("y1", pivotY);
+  radiusLine.setAttribute("x2", boomX);
+  radiusLine.setAttribute("y2", pivotY);
+
+  tipHeightLine.setAttribute("x1", boomX);
+  tipHeightLine.setAttribute("y1", boomY);
+  tipHeightLine.setAttribute("x2", boomX);
+  tipHeightLine.setAttribute("y2", pivotY);
+
+  radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
+  tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
 
   if (obstructionActive) {
     const obsX = pivotX + obsR * SVG_SCALE;
     const obsTopY = groundY - obsH * SVG_SCALE;
 
-    obstructionRect.setAttribute("x", obsX - OBSTRUCTION_WIDTH/2);
+    obstructionRect.style.visibility = "visible";
+    clearanceLine.style.visibility = "visible";
+
+    obstructionRect.setAttribute("x", obsX - 15);
     obstructionRect.setAttribute("y", obsTopY);
     obstructionRect.setAttribute("height", obsH * SVG_SCALE);
-    obstructionRect.style.visibility = "visible";
 
-    const startX = obsX - OBSTRUCTION_WIDTH/2;
-    const startY = obsTopY;
-
-    const cp = closestPointOnSegment(
-      startX, startY,
-      pivotX, pivotY,
-      boomX, boomY
-    );
-
-    clearanceLine.setAttribute("x1", startX);
-    clearanceLine.setAttribute("y1", startY);
-    clearanceLine.setAttribute("x2", cp.x);
-    clearanceLine.setAttribute("y2", cp.y);
-    clearanceLine.style.visibility = "visible";
+    const required = (obsH * radius / obsR) + margin;
+    clearanceLine.setAttribute("x1", obsX);
+    clearanceLine.setAttribute("x2", obsX);
+    clearanceLine.setAttribute("y1", groundY);
+    clearanceLine.setAttribute("y2", pivotY - required * SVG_SCALE);
+  } else {
+    obstructionRect.style.visibility = "hidden";
+    clearanceLine.style.visibility = "hidden";
   }
 
   result.innerHTML = `
+    <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
+    <p><b>Configuration:</b> ${best.config}</p>
     <p><b>Boom length:</b> ${best.boom} m</p>
+    <p><b>Utilisation:</b>
+      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+    </p>
     <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
   `;
 }
 
 [loadInput, riggingInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput]
-.forEach(e => e.addEventListener("input", calculate));
+  .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
 loadData(ballast.value);
