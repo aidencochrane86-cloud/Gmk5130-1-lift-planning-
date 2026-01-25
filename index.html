@@ -15,7 +15,6 @@ input::placeholder { color:#999; font-style:italic; }
 .badge.basic { background:#0066cc; }
 .badge.boom { background:#555; }
 .fail { color:#b42318; font-weight:bold; }
-.advice { color:#555; font-size:0.9em; }
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red { color:#b42318; font-weight:bold; }
@@ -37,26 +36,14 @@ th { background:#f0f0f0; }
 <div class="card">
 <h2>Inputs</h2>
 
-<label><input type="radio" name="mode" value="basic" checked> Basic Mode</label>
-<label><input type="radio" name="mode" value="boom"> Boom-specific</label>
+<label>Load (t)</label>
+<input id="load" type="number">
 
-<label>Ballast</label>
-<select id="ballast">
-  <option value="40_1t">40.1t</option>
-  <option value="23_5t">23.5t</option>
-  <option value="6t">6t</option>
-</select>
+<label>Block &amp; rigging (t)</label>
+<input id="rigging" type="number" placeholder="optional">
 
-<div id="basicInputs">
-  <label>Load (t)</label>
-  <input id="load" type="number">
-
-  <label>Block &amp; rigging (t)</label>
-  <input id="rigging" type="number" placeholder="optional">
-
-  <label>Working Radius (m)</label>
-  <input id="radius" type="number">
-</div>
+<label>Working Radius (m)</label>
+<input id="radius" type="number">
 </div>
 
 <div class="card">
@@ -111,7 +98,7 @@ const tipHeightLine = document.getElementById("tipHeightLine");
 const radiusLabel = document.getElementById("radiusLabel");
 const tipHeightLabel = document.getElementById("tipHeightLabel");
 
-let DATA = [];
+let DATA = []; // ← must already be loaded elsewhere
 
 const loadInput = document.getElementById("load");
 const riggingInput = document.getElementById("rigging");
@@ -126,7 +113,22 @@ function calculate() {
 
   if (!load || !radius) return;
 
-  const best = { boom: 41, capacity: 20 }; // example placeholder
+  // ✅ REAL BEST CANDIDATE (replaces placeholder)
+  const candidates = DATA
+    .filter(r => r.radius >= radius && r.capacity >= totalLoad)
+    .map(r => ({
+      boom: r.boom,
+      capacity: r.capacity,
+      util: totalLoad / r.capacity * 100
+    }))
+    .sort((a,b)=>a.util-b.util);
+
+  if (!candidates.length || candidates[0].util >= 90) {
+    result.innerHTML = `<p class="fail">Lift not possible</p>`;
+    return;
+  }
+
+  const best = candidates[0];
 
   const tipHeight = Math.sqrt(
     Math.max(0, best.boom * best.boom - radius * radius)
@@ -154,7 +156,8 @@ function calculate() {
 
   result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
-    <p><b>Boom:</b> ${best.boom} m</p>
+    <p><b>Boom length:</b> ${best.boom} m</p>
+    <p><b>Utilisation:</b> ${best.util.toFixed(1)}%</p>
     <p><b>Tip height:</b> ${tipHeight.toFixed(2)} m</p>
   `;
 }
