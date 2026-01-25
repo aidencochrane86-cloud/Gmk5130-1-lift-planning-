@@ -68,12 +68,12 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <!-- Ground -->
   <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
 
-  <!-- Boom pivot -->
-  <circle cx="130" cy="300" r="6" fill="#000"/>
+  <!-- Boom pivot (2 m above ground) -->
+  <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
 
   <!-- Boom -->
   <line id="boom"
-        x1="130" y1="300"
+        x1="130" y1="0"
         x2="300" y2="200"
         stroke="#FFD200"
         stroke-width="8"
@@ -81,8 +81,8 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 
   <!-- Radius -->
   <line id="radiusLine"
-        x1="130" y1="300"
-        x2="300" y2="300"
+        x1="130" y1="0"
+        x2="300" y2="0"
         stroke="#888"
         stroke-dasharray="6 4"
         stroke-width="2"/>
@@ -90,23 +90,21 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <!-- Tip height -->
   <line id="tipHeightLine"
         x1="300" y1="200"
-        x2="300" y2="300"
+        x2="300" y2="0"
         stroke="#888"
         stroke-dasharray="6 4"
         stroke-width="2"/>
 
-  <text id="radiusLabel" x="260" y="320" font-size="12" fill="#555"></text>
-  <text id="tipHeightLabel" x="310" y="240" font-size="12" fill="#555"></text>
+  <text id="radiusLabel" x="260" y="360" font-size="12" fill="#555"></text>
+  <text id="tipHeightLabel" x="310" y="200" font-size="12" fill="#555"></text>
 
   <!-- Obstruction -->
   <rect id="obstruction" x="0" y="0" width="30" height="0" fill="#ccc" opacity="0.9"/>
 
-  <!-- Clearance line -->
+  <!-- Clearance -->
   <line id="clearanceLine"
-        x1="0"
-        y1="0"
-        x2="0"
-        y2="0"
+        x1="0" y1="0"
+        x2="0" y2="0"
         stroke="#e74c3c"
         stroke-dasharray="4 4"
         stroke-width="3"/>
@@ -117,11 +115,16 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 </div>
 
 <script>
+/* ================= SCALE + GEOMETRY ================= */
 const SVG_SCALE = 6;
-const pivotX = 130;
-const pivotY = 300;
 const groundY = 340;
+const PIVOT_HEIGHT_M = 2;
 
+const pivotX = 130;
+const pivotY = groundY - (PIVOT_HEIGHT_M * SVG_SCALE);
+
+/* ================= SVG ELEMENTS ================= */
+const pivot = document.getElementById("pivot");
 const boomLine = document.getElementById("boom");
 const radiusLine = document.getElementById("radiusLine");
 const tipHeightLine = document.getElementById("tipHeightLine");
@@ -130,6 +133,7 @@ const tipHeightLabel = document.getElementById("tipHeightLabel");
 const obstructionRect = document.getElementById("obstruction");
 const clearanceLine = document.getElementById("clearanceLine");
 
+/* ================= DATA ================= */
 let DATA = [], META = {};
 
 const ballast = document.getElementById("ballast");
@@ -142,12 +146,14 @@ const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
 
+/* ================= HELPERS ================= */
 function utilClass(u) {
   if (u >= 90) return "util-red";
   if (u > 85) return "util-amber";
   return "util-green";
 }
 
+/* ================= LOAD DATA ================= */
 function loadData(key) {
   fetch(`loadchart_${key}.json`)
     .then(r => r.json())
@@ -162,6 +168,7 @@ function loadData(key) {
     });
 }
 
+/* ================= CALCULATE ================= */
 function calculate() {
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
@@ -181,13 +188,11 @@ function calculate() {
     if (r.radius < radius) return;
     if (r.capacity < totalLoad) return;
 
-    const tipHeight = Math.sqrt(
-      Math.max(0, r.boom * r.boom - radius * radius)
-    );
+    const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
 
     if (obstructionActive) {
-      const requiredHeight = (obsH * radius / obsR) + margin;
-      if (tipHeight < requiredHeight) return;
+      const required = (obsH * radius / obsR) + margin;
+      if (tipHeight < required) return;
     }
 
     candidates.push({
@@ -201,19 +206,29 @@ function calculate() {
 
   candidates.sort((a,b)=>a.util-b.util);
 
-  if (!candidates.length || candidates[0].util >= 90) {
-    result.innerHTML = `<p class="fail">Lift not possible</p>`;
+  if (!candidates.length) {
+    result.innerHTML = `<p class="fail">Lift not possible with current configuration.</p>`;
     return;
   }
 
   const best = candidates[0];
 
+  /* ===== SVG UPDATE ===== */
+  pivot.setAttribute("cy", pivotY);
+
   const boomX = pivotX + radius * SVG_SCALE;
   const boomY = pivotY - best.tipHeight * SVG_SCALE;
 
+  boomLine.setAttribute("x1", pivotX);
+  boomLine.setAttribute("y1", pivotY);
   boomLine.setAttribute("x2", boomX);
   boomLine.setAttribute("y2", boomY);
+
+  radiusLine.setAttribute("x1", pivotX);
+  radiusLine.setAttribute("y1", pivotY);
   radiusLine.setAttribute("x2", boomX);
+  radiusLine.setAttribute("y2", pivotY);
+
   tipHeightLine.setAttribute("x1", boomX);
   tipHeightLine.setAttribute("y1", boomY);
   tipHeightLine.setAttribute("x2", boomX);
@@ -222,27 +237,23 @@ function calculate() {
   radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
   tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
 
-  /* === FIXED OBSTRUCTION VISUAL (GROUND-ANCHORED) === */
   if (obstructionActive) {
     const obsX = pivotX + obsR * SVG_SCALE;
-    const obsHeightPx = obsH * SVG_SCALE;
-    const obsTopY = groundY - obsHeightPx;
+    const obsTopY = groundY - obsH * SVG_SCALE;
 
     obstructionRect.setAttribute("x", obsX - 15);
     obstructionRect.setAttribute("y", obsTopY);
-    obstructionRect.setAttribute("height", obsHeightPx);
+    obstructionRect.setAttribute("height", obsH * SVG_SCALE);
 
-    const requiredHeight = (obsH * radius / obsR) + margin;
-    const reqY = pivotY - requiredHeight * SVG_SCALE;
+    const required = (obsH * radius / obsR) + margin;
+    const reqY = pivotY - required * SVG_SCALE;
 
     clearanceLine.setAttribute("x1", obsX);
     clearanceLine.setAttribute("x2", obsX);
-    clearanceLine.setAttribute("y1", pivotY);
+    clearanceLine.setAttribute("y1", groundY);
     clearanceLine.setAttribute("y2", reqY);
   } else {
     obstructionRect.setAttribute("height", 0);
-    clearanceLine.setAttribute("y1", 0);
-    clearanceLine.setAttribute("y2", 0);
   }
 
   result.innerHTML = `
