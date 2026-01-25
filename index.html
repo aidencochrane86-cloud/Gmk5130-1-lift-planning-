@@ -5,65 +5,22 @@
 <title>Lift Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background:#f4f6f8;
-  padding:16px;
-}
-.card {
-  background:#fff;
-  padding:16px;
-  margin-bottom:16px;
-  border-radius:8px;
-}
-label {
-  display:block;
-  margin-top:10px;
-  font-weight:bold;
-}
-input[type="number"], select {
-  width:100%;
-  padding:6px;
-  margin-top:4px;
-}
-input::placeholder {
-  color:#999;
-  font-style:italic;
-}
-.meta {
-  font-size:0.9em;
-  background:#eef6ff;
-  padding:8px;
-  border-radius:6px;
-}
-.badge {
-  display:inline-block;
-  margin-top:6px;
-  padding:4px 8px;
-  color:#fff;
-  border-radius:12px;
-  font-size:0.8em;
-}
+body { font-family: Arial, sans-serif; background:#f4f6f8; padding:16px; }
+.card { background:#fff; padding:16px; margin-bottom:16px; border-radius:8px; }
+label { display:block; margin-top:10px; font-weight:bold; }
+input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
+input::placeholder { color:#999; font-style:italic; }
+.meta { font-size:0.9em; background:#eef6ff; padding:8px; border-radius:6px; }
+.badge { display:inline-block; margin-top:6px; padding:4px 8px; color:#fff; border-radius:12px; font-size:0.8em; }
 .badge.basic { background:#0066cc; }
 .badge.boom { background:#555; }
-
 .fail { color:#b42318; font-weight:bold; }
 .advice { color:#555; font-size:0.9em; }
-
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
-.util-red   { color:#b42318; font-weight:bold; }
-
-table {
-  width:100%;
-  border-collapse:collapse;
-  margin-top:10px;
-}
-th, td {
-  border:1px solid #ccc;
-  padding:6px;
-  text-align:center;
-}
+.util-red { color:#b42318; font-weight:bold; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th, td { border:1px solid #ccc; padding:6px; text-align:center; }
 th { background:#f0f0f0; }
 </style>
 </head>
@@ -80,14 +37,8 @@ th { background:#f0f0f0; }
 <div class="card">
 <h2>Inputs</h2>
 
-<label>
-  <input type="radio" name="mode" value="basic" checked>
-  Basic Mode
-</label>
-<label>
-  <input type="radio" name="mode" value="boom">
-  Boom-specific
-</label>
+<label><input type="radio" name="mode" value="basic" checked> Basic Mode</label>
+<label><input type="radio" name="mode" value="boom"> Boom-specific</label>
 
 <label>Ballast</label>
 <select id="ballast">
@@ -128,7 +79,6 @@ th { background:#f0f0f0; }
 </div>
 
 <script>
-const BOOM_FOOT_HEIGHT = 2.0;
 let DATA = [], META = {};
 
 const ballast = document.getElementById("ballast");
@@ -150,10 +100,7 @@ function utilClass(u) {
   if (u > 85) return "util-amber";
   return "util-green";
 }
-
-function isAmber(u) {
-  return u > 85 && u < 90;
-}
+function isAmber(u) { return u > 85 && u < 90; }
 
 function loadData(key) {
   fetch(`loadchart_${key}.json`)
@@ -161,12 +108,10 @@ function loadData(key) {
     .then(d => {
       DATA = d.charts;
       META = d.meta || {};
-
       let h = `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}`;
       if (META.outriggers) h += `<br><strong>Outriggers:</strong> ${META.outriggers}`;
       if (META.sli) h += `<br><strong>SLI:</strong> ${META.sli}`;
       metaBallast.innerHTML = h;
-
       populateBooms();
       calculate();
     });
@@ -182,6 +127,7 @@ function populateBooms() {
       o.textContent = `${b} m`;
       boomSelect.appendChild(o);
     });
+  if (boomSelect.options.length) boomSelect.selectedIndex = 0;
 }
 
 function calculate() {
@@ -193,7 +139,9 @@ function calculate() {
   basicInputs.style.display = mode === "boom" ? "none" : "block";
   boomInputs.style.display  = mode === "boom" ? "block" : "none";
 
+  /* ===== BOOM-SPECIFIC (ISOLATED) ===== */
   if (mode === "boom") {
+    if (!boomSelect.value) populateBooms();
     const boom = Number(boomSelect.value);
     if (!boom) {
       result.innerHTML = "Select a boom length.";
@@ -209,18 +157,13 @@ function calculate() {
       <table>
         <tr><th>Radius (m)</th><th>Capacity (t)</th></tr>
     `;
-
-    rows.forEach(r => {
-      html += `<tr><td>${r.radius}</td><td>${r.capacity}</td></tr>`;
-    });
-
+    rows.forEach(r => html += `<tr><td>${r.radius}</td><td>${r.capacity}</td></tr>`);
     html += "</table>";
     result.innerHTML = html;
     return;
   }
 
   /* ===== BASIC MODE (UNCHANGED) ===== */
-
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
   const totalLoad = load + rigging;
@@ -250,7 +193,6 @@ function calculate() {
   }
 
   const best = candidates[0];
-
   result.innerHTML = `
     <h3>Basic Mode Result</h3>
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
@@ -261,12 +203,7 @@ function calculate() {
     <p><b>Utilisation:</b>
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
-    ${isAmber(best.util) ? `
-      <p class="advice">
-        <b>Risk note:</b> Utilisation is within amber range.<br>
-        Reduced capacity margin — verify lift conditions.
-      </p>
-    ` : ``}
+    ${isAmber(best.util) ? `<p class="advice"><b>Risk note:</b> Amber utilisation.</p>` : ``}
     <p><b>SLI code:</b> ${META.sli || "—"}</p>
   `;
 }
@@ -277,7 +214,10 @@ document.querySelectorAll('input[name="mode"]').forEach(r =>
 
 [loadInput, riggingInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput]
-.forEach(e => e.addEventListener("input", calculate));
+.forEach(e => e.addEventListener("input", () => {
+  if (document.querySelector('input[name="mode"]:checked').value !== "boom")
+    calculate();
+}));
 
 boomSelect.addEventListener("change", calculate);
 ballast.addEventListener("change", () => loadData(ballast.value));
