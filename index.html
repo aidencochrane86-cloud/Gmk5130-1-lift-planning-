@@ -53,59 +53,31 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <input id="radius" type="number">
 
 <label>Obstruction Radius (m)</label>
-<input id="obsRadius" type="number" placeholder="optional">
+<input id="obsRadius" type="number">
 
 <label>Obstruction Height (m)</label>
-<input id="obsHeight" type="number" placeholder="optional">
+<input id="obsHeight" type="number">
 
 <label>Building Clearance (m)</label>
-<input id="margin" type="number" placeholder="optional">
+<input id="margin" type="number">
 </div>
 
 <div class="card">
 <h2>Result</h2>
 
 <div style="margin-bottom:16px;">
-<svg id="liftDiagram" viewBox="0 0 800 400" width="100%" height="260"
-     xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 800 400" width="100%" height="260">
 
   <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
-
   <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
 
-  <line id="boom"
-        x1="130" y1="0"
-        x2="300" y2="200"
-        stroke="#FFD200"
-        stroke-width="8"
-        stroke-linecap="round"/>
+  <line id="boom" stroke="#FFD200" stroke-width="8" stroke-linecap="round"/>
+  <line id="radiusLine" stroke="#888" stroke-dasharray="6 4" stroke-width="2"/>
+  <line id="tipHeightLine" stroke="#888" stroke-dasharray="6 4" stroke-width="2"/>
 
-  <line id="radiusLine"
-        x1="130" y1="0"
-        x2="300" y2="0"
-        stroke="#888"
-        stroke-dasharray="6 4"
-        stroke-width="2"/>
+  <rect id="obstruction" width="30" fill="#ccc" opacity="0.9"/>
+  <line id="clearanceLine" stroke="#e74c3c" stroke-dasharray="4 4" stroke-width="3"/>
 
-  <line id="tipHeightLine"
-        x1="300" y1="200"
-        x2="300" y2="0"
-        stroke="#888"
-        stroke-dasharray="6 4"
-        stroke-width="2"/>
-
-  <text id="radiusLabel" x="260" y="360" font-size="12" fill="#555"></text>
-  <text id="tipHeightLabel" x="310" y="200" font-size="12" fill="#555"></text>
-
-  <rect id="obstruction" x="0" y="0" width="30" height="0"
-        fill="#ccc" opacity="0.9"/>
-
-  <line id="clearanceLine"
-        x1="0" y1="0"
-        x2="0" y2="0"
-        stroke="#e74c3c"
-        stroke-dasharray="4 4"
-        stroke-width="3"/>
 </svg>
 </div>
 
@@ -115,31 +87,17 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <script>
 const SVG_SCALE = 6;
 const groundY = 340;
-const PIVOT_HEIGHT_M = 2;
-
 const pivotX = 130;
-const pivotY = groundY - (PIVOT_HEIGHT_M * SVG_SCALE);
+const pivotY = groundY - 12;
 
-const pivot = document.getElementById("pivot");
 const boomLine = document.getElementById("boom");
 const radiusLine = document.getElementById("radiusLine");
 const tipHeightLine = document.getElementById("tipHeightLine");
-const radiusLabel = document.getElementById("radiusLabel");
-const tipHeightLabel = document.getElementById("tipHeightLabel");
 const obstructionRect = document.getElementById("obstruction");
 const clearanceLine = document.getElementById("clearanceLine");
+const result = document.getElementById("result");
 
 let DATA = [], META = {};
-
-const ballast = document.getElementById("ballast");
-const loadInput = document.getElementById("load");
-const riggingInput = document.getElementById("rigging");
-const radiusInput = document.getElementById("radius");
-const obsRadiusInput = document.getElementById("obsRadius");
-const obsHeightInput = document.getElementById("obsHeight");
-const marginInput = document.getElementById("margin");
-const result = document.getElementById("result");
-const metaBallast = document.getElementById("metaBallast");
 
 function utilClass(u) {
   if (u >= 90) return "util-red";
@@ -147,56 +105,71 @@ function utilClass(u) {
   return "util-green";
 }
 
+function distancePointToSegment(px, py, ax, ay, bx, by) {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const apx = px - ax;
+  const apy = py - ay;
+  let t = (apx * abx + apy * aby) / (abx * abx + aby * aby);
+  t = Math.max(0, Math.min(1, t));
+  const cx = ax + t * abx;
+  const cy = ay + t * aby;
+  return Math.hypot(px - cx, py - cy);
+}
+
 function loadData(key) {
   fetch(`loadchart_${key}.json`)
     .then(r => r.json())
-    .then(d => {
-      DATA = d.charts;
-      META = d.meta || {};
-      metaBallast.innerHTML =
-        `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}<br>` +
-        `<strong>Outriggers:</strong> ${META.outriggers || "—"}<br>` +
-        `<strong>SLI:</strong> ${META.sli || "—"}`;
-      calculate();
-    });
+    .then(d => { DATA = d.charts; META = d.meta || {}; calculate(); });
 }
 
 function calculate() {
   const load = +loadInput.value;
-  const rigging = riggingInput.value ? +riggingInput.value : 0;
-  const totalLoad = load + rigging;
   const radius = +radiusInput.value;
-
-  if (!load || !radius) return;
-
-  pivot.style.visibility = "visible";
-  boomLine.style.visibility = "visible";
-  radiusLine.style.visibility = "visible";
-  tipHeightLine.style.visibility = "visible";
-
+  const rigging = +riggingInput.value || 0;
+  const totalLoad = load + rigging;
   const obsR = +obsRadiusInput.value;
   const obsH = +obsHeightInput.value;
-  const obstructionActive = obsR && obsH;
+  const margin = +marginInput.value || 0;
+
+  if (!load || !radius) return;
 
   let candidates = [];
 
   DATA.forEach(r => {
-    if (r.radius < radius) return;
-    if (r.capacity < totalLoad) return;
+    if (r.radius < radius || r.capacity < totalLoad) return;
 
     const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
+
+    if (obsR && obsH) {
+      const boomX = pivotX + radius * SVG_SCALE;
+      const boomY = pivotY - tipHeight * SVG_SCALE;
+      const obsX = pivotX + obsR * SVG_SCALE - 15;
+      const obsY = groundY - obsH * SVG_SCALE;
+
+      const clearanceM = distancePointToSegment(
+        obsX, obsY,
+        pivotX, pivotY,
+        boomX, boomY
+      ) / SVG_SCALE;
+
+      if (clearanceM < margin) return;
+    }
+
     candidates.push({
-      boom: r.boom,
-      capacity: r.capacity,
-      config: r.config,
+      ...r,
       util: totalLoad / r.capacity * 100,
       tipHeight
     });
   });
 
-  if (!candidates.length) return;
+  if (!candidates.length) {
+    result.innerHTML = `<p class="fail">Lift not possible</p>`;
+    return;
+  }
 
-  const best = candidates.sort((a,b)=>a.util-b.util)[0];
+  candidates.sort((a,b)=>a.util-b.util);
+  const best = candidates[0];
 
   const boomX = pivotX + radius * SVG_SCALE;
   const boomY = pivotY - best.tipHeight * SVG_SCALE;
@@ -205,72 +178,42 @@ function calculate() {
   boomLine.setAttribute("y1", pivotY);
   boomLine.setAttribute("x2", boomX);
   boomLine.setAttribute("y2", boomY);
+  boomLine.style.visibility = "visible";
 
-  radiusLine.setAttribute("x1", pivotX);
-  radiusLine.setAttribute("y1", pivotY);
-  radiusLine.setAttribute("x2", boomX);
-  radiusLine.setAttribute("y2", pivotY);
+  if (obsR && obsH) {
+    const obsX = pivotX + obsR * SVG_SCALE - 15;
+    const obsY = groundY - obsH * SVG_SCALE;
 
-  tipHeightLine.setAttribute("x1", boomX);
-  tipHeightLine.setAttribute("y1", boomY);
-  tipHeightLine.setAttribute("x2", boomX);
-  tipHeightLine.setAttribute("y2", pivotY);
-
-  radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
-  tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
-
-  if (obstructionActive) {
-    const obsX = pivotX + obsR * SVG_SCALE;
-    const obsTopY = groundY - obsH * SVG_SCALE;
-
-    obstructionRect.style.visibility = "visible";
-    clearanceLine.style.visibility = "visible";
-
-    obstructionRect.setAttribute("x", obsX - 15);
-    obstructionRect.setAttribute("y", obsTopY);
+    obstructionRect.setAttribute("x", obsX);
+    obstructionRect.setAttribute("y", obsY);
     obstructionRect.setAttribute("height", obsH * SVG_SCALE);
+    obstructionRect.style.visibility = "visible";
 
-    // STEP A – top-left corner clearance (visual only)
-    const px = obsX - 15;
-    const py = obsTopY;
-
-    const ax = pivotX;
-    const ay = pivotY;
-    const bx = boomX;
-    const by = boomY;
-
-    const abx = bx - ax;
-    const aby = by - ay;
-    const apx = px - ax;
-    const apy = py - ay;
-
-    let t = (apx * abx + apy * aby) / (abx * abx + aby * aby);
-    t = Math.max(0, Math.min(1, t));
-
-    const cx = ax + t * abx;
-    const cy = ay + t * aby;
-
-    clearanceLine.setAttribute("x1", px);
-    clearanceLine.setAttribute("y1", py);
-    clearanceLine.setAttribute("x2", cx);
-    clearanceLine.setAttribute("y2", cy);
-  } else {
-    obstructionRect.style.visibility = "hidden";
-    clearanceLine.style.visibility = "hidden";
+    clearanceLine.setAttribute("x1", obsX);
+    clearanceLine.setAttribute("y1", obsY);
+    clearanceLine.setAttribute("x2", boomX);
+    clearanceLine.setAttribute("y2", boomY);
+    clearanceLine.style.visibility = "visible";
   }
 
   result.innerHTML = `
+    <h4>Recommended (Lowest Utilisation)</h4>
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
     <p><b>Boom length:</b> ${best.boom} m</p>
-    <p><b>Utilisation:</b>
-      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
-    </p>
+    <p><b>Utilisation:</b> <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span></p>
     <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
   `;
 }
 
-[loadInput, riggingInput, radiusInput,
- obsRadiusInput, obsHeightInput, marginInput]
+const ballast = document.getElementById("ballast");
+const loadInput = document.getElementById("load");
+const riggingInput = document.getElementById("rigging");
+const radiusInput = document.getElementById("radius");
+const obsRadiusInput = document.getElementById("obsRadius");
+const obsHeightInput = document.getElementById("obsHeight");
+const marginInput = document.getElementById("margin");
+
+[loadInput, riggingInput, radiusInput, obsRadiusInput, obsHeightInput, marginInput]
   .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
