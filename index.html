@@ -13,6 +13,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 .badge { display:inline-block; margin-top:6px; padding:4px 8px; color:#fff; border-radius:12px; font-size:0.8em; }
 .badge.basic { background:#0066cc; }
 .fail { color:#b42318; font-weight:bold; }
+.alt { background:#fff8e1; border-left:4px solid #f4b400; padding:12px; margin-top:12px; }
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red { color:#b42318; font-weight:bold; }
@@ -91,7 +92,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <text id="radiusLabel" x="260" y="320" font-size="12" fill="#555"></text>
   <text id="tipHeightLabel" x="310" y="240" font-size="12" fill="#555"></text>
 
-  <!-- Visual obstruction -->
   <rect id="obstruction" x="0" y="0" width="30" height="0" fill="#ccc" opacity="0.9"/>
   <line id="clearanceLine" x1="0" y1="0" x2="0" y2="0"
         stroke="#e74c3c" stroke-dasharray="4 4" stroke-width="3"/>
@@ -99,7 +99,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 </div>
 
 <div id="result">Select inputs.</div>
-<div id="recovery"></div>
 </div>
 
 <script>
@@ -115,6 +114,8 @@ const tipHeightLabel = document.getElementById("tipHeightLabel");
 const obstructionRect = document.getElementById("obstruction");
 const clearanceLine = document.getElementById("clearanceLine");
 
+let DATA = [], META = {};
+
 const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
 const riggingInput = document.getElementById("rigging");
@@ -123,10 +124,7 @@ const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
-const recovery = document.getElementById("recovery");
 const metaBallast = document.getElementById("metaBallast");
-
-let DATA = [], META = {};
 
 function utilClass(u) {
   if (u >= 90) return "util-red";
@@ -187,49 +185,44 @@ function calculate() {
 
   candidates.sort((a,b)=>a.util-b.util);
 
-  recovery.innerHTML = "";
+  let html = "";
 
-  if (!candidates.length || candidates[0].util >= 90) {
-    result.innerHTML = `<p class="fail">Lift not possible with current configuration.</p>`;
+  if (!candidates.length) {
+    html += `<p class="fail">Lift not possible with current configuration.</p>`;
 
+    /* ===== OBSTRUCTION RECOVERY ===== */
     if (obstructionActive) {
-      let recoveryCandidates = [];
+      const recovery = DATA
+        .filter(r => r.radius >= radius && r.capacity >= totalLoad)
+        .map(r => {
+          const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
+          const required = (obsH * radius / obsR) + margin;
+          return {
+            ...r,
+            util: totalLoad / r.capacity * 100,
+            tipHeight,
+            clears: tipHeight >= required
+          };
+        })
+        .filter(r => r.clears && r.util < 90)
+        .sort((a,b)=>a.util-b.util)[0];
 
-      DATA.forEach(r => {
-        if (r.radius < radius) return;
-        if (r.capacity < totalLoad) return;
-
-        const tipHeight = Math.sqrt(
-          Math.max(0, r.boom * r.boom - radius * radius)
-        );
-
-        const requiredHeight = (obsH * radius / obsR) + margin;
-        if (tipHeight < requiredHeight) return;
-
-        recoveryCandidates.push({
-          boom: r.boom,
-          capacity: r.capacity,
-          util: totalLoad / r.capacity * 100,
-          tipHeight
-        });
-      });
-
-      recoveryCandidates.sort((a,b)=>a.util-b.util);
-
-      if (recoveryCandidates.length && recoveryCandidates[0].util < 90) {
-        const alt = recoveryCandidates[0];
-        recovery.innerHTML = `
-          <div class="card" style="background:#fff8e1;">
-            <h3>Alternative configuration available</h3>
-            <p><b>Boom length:</b> ${alt.boom} m</p>
+      if (recovery) {
+        html += `
+          <div class="alt">
+            <h4>Alternative setup to clear obstruction</h4>
+            <p><b>Boom length:</b> ${recovery.boom} m</p>
+            <p><b>Configuration:</b> ${recovery.config}</p>
             <p><b>Utilisation:</b>
-              <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
+              <span class="${utilClass(recovery.util)}">${recovery.util.toFixed(1)}%</span>
             </p>
-            <p><b>Tip height:</b> ${alt.tipHeight.toFixed(2)} m</p>
+            <p><b>Tip height:</b> ${recovery.tipHeight.toFixed(2)} m</p>
           </div>
         `;
       }
     }
+
+    result.innerHTML = html;
     return;
   }
 
@@ -252,14 +245,11 @@ function calculate() {
   if (obstructionActive) {
     const obsX = pivotX + obsR * SVG_SCALE;
     const obsTopY = pivotY - obsH * SVG_SCALE;
-
     obstructionRect.setAttribute("x", obsX - 15);
     obstructionRect.setAttribute("y", obsTopY);
     obstructionRect.setAttribute("height", obsH * SVG_SCALE);
-
     const requiredHeight = (obsH * radius / obsR) + margin;
     const reqY = pivotY - requiredHeight * SVG_SCALE;
-
     clearanceLine.setAttribute("x1", obsX);
     clearanceLine.setAttribute("x2", obsX);
     clearanceLine.setAttribute("y1", pivotY);
