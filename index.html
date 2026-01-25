@@ -13,11 +13,14 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 .badge { display:inline-block; margin-top:6px; padding:4px 8px; color:#fff; border-radius:12px; font-size:0.8em; }
 .badge.basic { background:#0066cc; }
 .fail { color:#b42318; font-weight:bold; }
+
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red { color:#b42318; font-weight:bold; }
+
 .alt { background:#fff8e1; border-left:4px solid #f4b400; padding:12px; margin-top:12px; }
 
+/* Hide SVG dynamics until valid calc */
 #boom, #radiusLine, #tipHeightLine, #obstruction, #clearanceLine {
   visibility: hidden;
 }
@@ -66,26 +69,23 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <h2>Result</h2>
 
 <div style="margin-bottom:16px;">
-<svg id="liftDiagram" viewBox="0 0 800 400" width="100%" height="260"
+<svg viewBox="0 0 800 400" width="100%" height="260"
      xmlns="http://www.w3.org/2000/svg">
 
   <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
+
   <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
 
-  <line id="boom" x1="130" y1="0" x2="300" y2="200"
-        stroke="#FFD200" stroke-width="8" stroke-linecap="round"/>
+  <line id="boom" stroke="#FFD200" stroke-width="8" stroke-linecap="round"/>
 
-  <line id="radiusLine" x1="130" y1="0" x2="300" y2="0"
-        stroke="#888" stroke-dasharray="6 4" stroke-width="2"/>
+  <line id="radiusLine" stroke="#888" stroke-dasharray="6 4" stroke-width="2"/>
+  <line id="tipHeightLine" stroke="#888" stroke-dasharray="6 4" stroke-width="2"/>
 
-  <line id="tipHeightLine" x1="300" y1="200" x2="300" y2="0"
-        stroke="#888" stroke-dasharray="6 4" stroke-width="2"/>
+  <rect id="obstruction" width="30" fill="#ccc" opacity="0.9"/>
+  <line id="clearanceLine" stroke="#e74c3c" stroke-dasharray="4 4" stroke-width="3"/>
 
-  <rect id="obstruction" x="0" y="0" width="30" height="0"
-        fill="#ccc" opacity="0.9"/>
-
-  <line id="clearanceLine" x1="0" y1="0" x2="0" y2="0"
-        stroke="#e74c3c" stroke-dasharray="4 4" stroke-width="3"/>
+  <text id="radiusLabel" x="260" y="360" font-size="12" fill="#555"></text>
+  <text id="tipHeightLabel" x="310" y="200" font-size="12" fill="#555"></text>
 </svg>
 </div>
 
@@ -95,29 +95,22 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <script>
 const SVG_SCALE = 6;
 const groundY = 340;
-const PIVOT_HEIGHT_M = 2;
-
 const pivotX = 130;
-const pivotY = groundY - (PIVOT_HEIGHT_M * SVG_SCALE);
+const pivotY = groundY - (2 * SVG_SCALE);
 
-const pivot = document.getElementById("pivot");
-const boomLine = document.getElementById("boom");
+const boom = document.getElementById("boom");
 const radiusLine = document.getElementById("radiusLine");
 const tipHeightLine = document.getElementById("tipHeightLine");
-const obstructionRect = document.getElementById("obstruction");
+const obstruction = document.getElementById("obstruction");
 const clearanceLine = document.getElementById("clearanceLine");
+const radiusLabel = document.getElementById("radiusLabel");
+const tipHeightLabel = document.getElementById("tipHeightLabel");
+
+const ballastSel = document.getElementById("ballast");
+const resultDiv = document.getElementById("result");
+const metaBallast = document.getElementById("metaBallast");
 
 let DATA = [], META = {};
-
-const ballast = document.getElementById("ballast");
-const loadInput = document.getElementById("load");
-const riggingInput = document.getElementById("rigging");
-const radiusInput = document.getElementById("radius");
-const obsRadiusInput = document.getElementById("obsRadius");
-const obsHeightInput = document.getElementById("obsHeight");
-const marginInput = document.getElementById("margin");
-const result = document.getElementById("result");
-const metaBallast = document.getElementById("metaBallast");
 
 function utilClass(u) {
   if (u >= 90) return "util-red";
@@ -132,58 +125,89 @@ function loadData(key) {
       DATA = d.charts;
       META = d.meta || {};
       metaBallast.innerHTML =
-        `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}<br>` +
+        `<strong>Ballast:</strong> ${ballastSel.selectedOptions[0].text}<br>` +
         `<strong>Outriggers:</strong> ${META.outriggers || "—"}<br>` +
-        `<strong>SLI:</strong> ${META.sli || "—"}`;
+        `<strong>SLI:</strong> <b>${META.sli || "—"}</b>`;
       calculate();
     });
 }
 
 function calculate() {
-  const load = +loadInput.value;
-  const rigging = riggingInput.value ? +riggingInput.value : 0;
-  const totalLoad = load + rigging;
+  const load = +load.value;
+  const rigging = +riggingInput.value || 0;
+  const total = load + rigging;
   const radius = +radiusInput.value;
   if (!load || !radius) return;
 
-  pivot.style.visibility = "visible";
-  boomLine.style.visibility = "visible";
-  radiusLine.style.visibility = "visible";
-  tipHeightLine.style.visibility = "visible";
+  const obsR = +obsRadiusInput.value;
+  const obsH = +obsHeightInput.value;
+  const margin = +marginInput.value || 0;
+  const obstructionActive = obsR && obsH;
 
   let candidates = [];
 
   DATA.forEach(r => {
     if (r.radius < radius) return;
-    if (r.capacity < totalLoad) return;
+    if (r.capacity < total) return;
 
     const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
+    if (obstructionActive) {
+      const required = (obsH * radius / obsR) + margin;
+      if (tipHeight < required) return;
+    }
+
     candidates.push({
       ...r,
-      util: totalLoad / r.capacity * 100,
+      util: total / r.capacity * 100,
       tipHeight
     });
   });
 
   if (!candidates.length) {
-    result.innerHTML = `<p class="fail">Lift not possible</p>`;
+    resultDiv.innerHTML = `<p class="fail">Lift not possible</p>`;
     return;
   }
 
   const lowestUtil = [...candidates].sort((a,b)=>a.util-b.util)[0];
   const near80 = candidates
     .filter(c => c.util <= 80)
-    .sort((a,b)=>Math.abs(a.util - 80) - Math.abs(b.util - 80))[0];
+    .sort((a,b)=>Math.abs(a.util-80)-Math.abs(b.util-80))[0];
 
+  /* 🔒 SVG IS LOCKED TO LOWEST UTIL ONLY */
   const best = lowestUtil;
+
+  const boomX = pivotX + radius * SVG_SCALE;
+  const boomY = pivotY - best.tipHeight * SVG_SCALE;
+
+  boom.setAttribute("x1", pivotX);
+  boom.setAttribute("y1", pivotY);
+  boom.setAttribute("x2", boomX);
+  boom.setAttribute("y2", boomY);
+
+  boom.style.visibility = "visible";
+
+  radiusLine.setAttribute("x1", pivotX);
+  radiusLine.setAttribute("y1", pivotY);
+  radiusLine.setAttribute("x2", boomX);
+  radiusLine.setAttribute("y2", pivotY);
+  radiusLine.style.visibility = "visible";
+
+  tipHeightLine.setAttribute("x1", boomX);
+  tipHeightLine.setAttribute("y1", boomY);
+  tipHeightLine.setAttribute("x2", boomX);
+  tipHeightLine.setAttribute("y2", pivotY);
+  tipHeightLine.style.visibility = "visible";
+
+  radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
+  tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
 
   let html = `
     <h4>Recommended (Lowest Utilisation)</h4>
-    <p><b>Total weight:</b> ${totalLoad.toFixed(2)} t</p>
-    <p><b>Outriggers:</b> ${META.outriggers || "—"}</p>
-    <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
+    <p><b>Total weight:</b> ${total.toFixed(2)} t</p>
+    <p><b>Outriggers:</b> ${META.outriggers}</p>
+    <p><b>Ballast:</b> ${ballastSel.selectedOptions[0].text}</p>
     <p><b>Configuration:</b> ${best.config}</p>
-    <p><b>SLI:</b> <b>${META.sli || "—"}</b></p>
+    <p><b>SLI:</b> <b>${META.sli}</b></p>
     <p><b>Boom length:</b> ${best.boom} m</p>
     <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
     <p><b>Working radius:</b> ${radius.toFixed(1)} m</p>
@@ -192,7 +216,7 @@ function calculate() {
     </p>
   `;
 
-  if (near80 && near80 !== best) {
+  if (near80 && near80 !== lowestUtil) {
     html += `
       <div class="alt">
         <h4>Most Efficient (~80% Utilisation)</h4>
@@ -206,14 +230,21 @@ function calculate() {
     `;
   }
 
-  result.innerHTML = html;
+  resultDiv.innerHTML = html;
 }
 
-[loadInput, riggingInput, radiusInput]
+const load = document.getElementById("load");
+const riggingInput = document.getElementById("rigging");
+const radiusInput = document.getElementById("radius");
+const obsRadiusInput = document.getElementById("obsRadius");
+const obsHeightInput = document.getElementById("obsHeight");
+const marginInput = document.getElementById("margin");
+
+[load, riggingInput, radiusInput, obsRadiusInput, obsHeightInput, marginInput]
   .forEach(e => e.addEventListener("input", calculate));
 
-ballast.addEventListener("change", () => loadData(ballast.value));
-loadData(ballast.value);
+ballastSel.addEventListener("change", () => loadData(ballastSel.value));
+loadData(ballastSel.value);
 </script>
 
 </body>
