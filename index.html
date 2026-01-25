@@ -92,15 +92,14 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <text id="tipHeightLabel" x="310" y="240" font-size="12" fill="#555"></text>
 
   <!-- Visual obstruction -->
-  <rect id="obstruction" x="0" y="0" width="30" height="0"
-        fill="#ccc" opacity="0.9"/>
-
+  <rect id="obstruction" x="0" y="0" width="30" height="0" fill="#ccc" opacity="0.9"/>
   <line id="clearanceLine" x1="0" y1="0" x2="0" y2="0"
         stroke="#e74c3c" stroke-dasharray="4 4" stroke-width="3"/>
 </svg>
 </div>
 
 <div id="result">Select inputs.</div>
+<div id="recovery"></div>
 </div>
 
 <script>
@@ -116,8 +115,6 @@ const tipHeightLabel = document.getElementById("tipHeightLabel");
 const obstructionRect = document.getElementById("obstruction");
 const clearanceLine = document.getElementById("clearanceLine");
 
-let DATA = [], META = {};
-
 const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
 const riggingInput = document.getElementById("rigging");
@@ -126,43 +123,15 @@ const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
+const recovery = document.getElementById("recovery");
 const metaBallast = document.getElementById("metaBallast");
+
+let DATA = [], META = {};
 
 function utilClass(u) {
   if (u >= 90) return "util-red";
   if (u > 85) return "util-amber";
   return "util-green";
-}
-
-/* ===== OBSTRUCTION RECOVERY (ADVISORY ONLY) ===== */
-function findObstructionRecovery(radius, totalLoad, obsR, obsH, margin) {
-  let options = [];
-
-  DATA.forEach(r => {
-    if (r.radius < radius) return;
-    if (r.capacity < totalLoad) return;
-
-    const tipHeight = Math.sqrt(
-      Math.max(0, r.boom * r.boom - radius * radius)
-    );
-
-    const requiredHeight = (obsH * radius / obsR) + margin;
-    if (tipHeight < requiredHeight) return;
-
-    const util = totalLoad / r.capacity * 100;
-    if (util >= 90) return;
-
-    options.push({
-      boom: r.boom,
-      config: r.config,
-      util,
-      tipHeight,
-      clearance: tipHeight - requiredHeight
-    });
-  });
-
-  options.sort((a,b)=>a.util-b.util);
-  return options[0] || null;
 }
 
 function loadData(key) {
@@ -218,33 +187,49 @@ function calculate() {
 
   candidates.sort((a,b)=>a.util-b.util);
 
+  recovery.innerHTML = "";
+
   if (!candidates.length || candidates[0].util >= 90) {
-    let advisory = "";
+    result.innerHTML = `<p class="fail">Lift not possible with current configuration.</p>`;
 
     if (obstructionActive) {
-      const recovery = findObstructionRecovery(
-        radius, totalLoad, obsR, obsH, margin
-      );
+      let recoveryCandidates = [];
 
-      if (recovery) {
-        advisory = `
-          <div style="margin-top:12px;padding:10px;background:#eef6ff;border-radius:6px;">
-            <b>Alternative configuration available</b><br>
-            Longer boom can clear obstruction safely:<br><br>
-            <b>Boom:</b> ${recovery.boom} m<br>
-            <b>Configuration:</b> ${recovery.config}<br>
-            <b>Utilisation:</b>
-            <span class="${utilClass(recovery.util)}">${recovery.util.toFixed(1)}%</span><br>
-            <b>Clearance margin:</b> +${recovery.clearance.toFixed(2)} m
+      DATA.forEach(r => {
+        if (r.radius < radius) return;
+        if (r.capacity < totalLoad) return;
+
+        const tipHeight = Math.sqrt(
+          Math.max(0, r.boom * r.boom - radius * radius)
+        );
+
+        const requiredHeight = (obsH * radius / obsR) + margin;
+        if (tipHeight < requiredHeight) return;
+
+        recoveryCandidates.push({
+          boom: r.boom,
+          capacity: r.capacity,
+          util: totalLoad / r.capacity * 100,
+          tipHeight
+        });
+      });
+
+      recoveryCandidates.sort((a,b)=>a.util-b.util);
+
+      if (recoveryCandidates.length && recoveryCandidates[0].util < 90) {
+        const alt = recoveryCandidates[0];
+        recovery.innerHTML = `
+          <div class="card" style="background:#fff8e1;">
+            <h3>Alternative configuration available</h3>
+            <p><b>Boom length:</b> ${alt.boom} m</p>
+            <p><b>Utilisation:</b>
+              <span class="${utilClass(alt.util)}">${alt.util.toFixed(1)}%</span>
+            </p>
+            <p><b>Tip height:</b> ${alt.tipHeight.toFixed(2)} m</p>
           </div>
         `;
       }
     }
-
-    result.innerHTML = `
-      <p class="fail"><b>Lift not possible with current configuration</b></p>
-      ${advisory}
-    `;
     return;
   }
 
@@ -256,7 +241,6 @@ function calculate() {
   boomLine.setAttribute("x2", boomX);
   boomLine.setAttribute("y2", boomY);
   radiusLine.setAttribute("x2", boomX);
-
   tipHeightLine.setAttribute("x1", boomX);
   tipHeightLine.setAttribute("y1", boomY);
   tipHeightLine.setAttribute("x2", boomX);
@@ -264,6 +248,27 @@ function calculate() {
 
   radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
   tipHeightLabel.textContent = `H = ${best.tipHeight.toFixed(1)} m`;
+
+  if (obstructionActive) {
+    const obsX = pivotX + obsR * SVG_SCALE;
+    const obsTopY = pivotY - obsH * SVG_SCALE;
+
+    obstructionRect.setAttribute("x", obsX - 15);
+    obstructionRect.setAttribute("y", obsTopY);
+    obstructionRect.setAttribute("height", obsH * SVG_SCALE);
+
+    const requiredHeight = (obsH * radius / obsR) + margin;
+    const reqY = pivotY - requiredHeight * SVG_SCALE;
+
+    clearanceLine.setAttribute("x1", obsX);
+    clearanceLine.setAttribute("x2", obsX);
+    clearanceLine.setAttribute("y1", pivotY);
+    clearanceLine.setAttribute("y2", reqY);
+  } else {
+    obstructionRect.setAttribute("height", 0);
+    clearanceLine.setAttribute("y1", 0);
+    clearanceLine.setAttribute("y2", 0);
+  }
 
   result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
@@ -284,7 +289,6 @@ function calculate() {
   .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
-
 loadData(ballast.value);
 </script>
 
