@@ -17,6 +17,11 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red { color:#b42318; font-weight:bold; }
+
+/* ✅ Hide SVG dynamic elements until first valid calculation */
+#boom, #radiusLine, #tipHeightLine, #obstruction, #clearanceLine {
+  visibility: hidden;
+}
 </style>
 </head>
 
@@ -176,6 +181,13 @@ function calculate() {
   const radius = +radiusInput.value;
 
   if (!load || !radius) return;
+
+  // ✅ Reveal SVG once valid data exists
+  boomLine.style.visibility = "visible";
+  radiusLine.style.visibility = "visible";
+  tipHeightLine.style.visibility = "visible";
+  obstructionRect.style.visibility = "visible";
+  clearanceLine.style.visibility = "visible";
 
   const obsR = +obsRadiusInput.value;
   const obsH = +obsHeightInput.value;
