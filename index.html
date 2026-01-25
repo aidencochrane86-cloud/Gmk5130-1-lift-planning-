@@ -18,7 +18,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red { color:#b42318; font-weight:bold; }
 
-/* ✅ Hide SVG dynamic elements until first valid calculation */
+/* Hide SVG dynamic elements until first valid calculation */
 #boom, #radiusLine, #tipHeightLine, #obstruction, #clearanceLine {
   visibility: hidden;
 }
@@ -59,7 +59,8 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <label>Obstruction Height (m)</label>
 <input id="obsHeight" type="number" placeholder="optional">
 
-<label>Clearance Margin (m)</label>
+<!-- ✅ RENAMED -->
+<label>Building Clearance (m)</label>
 <input id="margin" type="number" placeholder="optional">
 </div>
 
@@ -70,13 +71,10 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <svg id="liftDiagram" viewBox="0 0 800 400" width="100%" height="260"
      xmlns="http://www.w3.org/2000/svg">
 
-  <!-- Ground -->
   <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
 
-  <!-- Boom pivot (2 m above ground) -->
   <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
 
-  <!-- Boom -->
   <line id="boom"
         x1="130" y1="0"
         x2="300" y2="200"
@@ -84,7 +82,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
         stroke-width="8"
         stroke-linecap="round"/>
 
-  <!-- Radius -->
   <line id="radiusLine"
         x1="130" y1="0"
         x2="300" y2="0"
@@ -92,7 +89,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
         stroke-dasharray="6 4"
         stroke-width="2"/>
 
-  <!-- Tip height -->
   <line id="tipHeightLine"
         x1="300" y1="200"
         x2="300" y2="0"
@@ -103,10 +99,8 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <text id="radiusLabel" x="260" y="360" font-size="12" fill="#555"></text>
   <text id="tipHeightLabel" x="310" y="200" font-size="12" fill="#555"></text>
 
-  <!-- Obstruction -->
   <rect id="obstruction" x="0" y="0" width="30" height="0" fill="#ccc" opacity="0.9"/>
 
-  <!-- Clearance -->
   <line id="clearanceLine"
         x1="0" y1="0"
         x2="0" y2="0"
@@ -120,7 +114,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 </div>
 
 <script>
-/* ================= SCALE + GEOMETRY ================= */
 const SVG_SCALE = 6;
 const groundY = 340;
 const PIVOT_HEIGHT_M = 2;
@@ -128,7 +121,6 @@ const PIVOT_HEIGHT_M = 2;
 const pivotX = 130;
 const pivotY = groundY - (PIVOT_HEIGHT_M * SVG_SCALE);
 
-/* ================= SVG ELEMENTS ================= */
 const pivot = document.getElementById("pivot");
 const boomLine = document.getElementById("boom");
 const radiusLine = document.getElementById("radiusLine");
@@ -138,7 +130,6 @@ const tipHeightLabel = document.getElementById("tipHeightLabel");
 const obstructionRect = document.getElementById("obstruction");
 const clearanceLine = document.getElementById("clearanceLine");
 
-/* ================= DATA ================= */
 let DATA = [], META = {};
 
 const ballast = document.getElementById("ballast");
@@ -151,14 +142,12 @@ const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
 
-/* ================= HELPERS ================= */
 function utilClass(u) {
   if (u >= 90) return "util-red";
   if (u > 85) return "util-amber";
   return "util-green";
 }
 
-/* ================= LOAD DATA ================= */
 function loadData(key) {
   fetch(`loadchart_${key}.json`)
     .then(r => r.json())
@@ -173,7 +162,6 @@ function loadData(key) {
     });
 }
 
-/* ================= CALCULATE ================= */
 function calculate() {
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
@@ -182,7 +170,6 @@ function calculate() {
 
   if (!load || !radius) return;
 
-  // ✅ Reveal SVG once valid data exists
   boomLine.style.visibility = "visible";
   radiusLine.style.visibility = "visible";
   tipHeightLine.style.visibility = "visible";
@@ -225,7 +212,6 @@ function calculate() {
 
   const best = candidates[0];
 
-  /* ===== SVG UPDATE ===== */
   pivot.setAttribute("cy", pivotY);
 
   const boomX = pivotX + radius * SVG_SCALE;
