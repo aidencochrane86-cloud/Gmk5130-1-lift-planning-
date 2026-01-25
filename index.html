@@ -214,19 +214,32 @@ candidates.sort((a,b)=>a.util-b.util);
   }
 
   const best = candidates[0];
-  result.innerHTML = `
-    <h3>Basic Mode Result</h3>
-    <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
-    <p><b>Configuration:</b> ${best.config}</p>
-    <p><b>Boom length:</b> ${best.boom} m</p>
-    <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
-    <p><b>Outriggers:</b> ${META.outriggers || "—"}</p>
-    <p><b>Utilisation:</b>
-      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+  const tipHeight = Math.sqrt(
+  Math.max(0, best.boom * best.boom - radius * radius)
+);
+result.innerHTML = `
+  <h3>Basic Mode Result</h3>
+
+  <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
+  <p><b>Configuration:</b> ${best.config}</p>
+  <p><b>SLI code:</b> ${META.sli || "—"}</p>
+  <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
+  <p><b>Boom length:</b> ${best.boom} m</p>
+  <p><b>Outriggers:</b> ${META.outriggers || "—"}</p>
+
+  <p><b>Utilisation:</b>
+    <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+  </p>
+
+  <p><b>Tip height:</b> ${tipHeight.toFixed(2)} m</p>
+
+  ${isAmber(best.util) ? `
+    <p class="advice">
+      <b>Risk note:</b> Utilisation is within amber range.<br>
+      Reduced capacity margin — verify lift conditions.
     </p>
-    ${isAmber(best.util) ? `<p class="advice"><b>Risk note:</b> Amber utilisation.</p>` : ``}
-    <p><b>SLI code:</b> ${META.sli || "—"}</p>
-  `;
+  ` : ``}
+`;
 }
 
 document.querySelectorAll('input[name="mode"]').forEach(r =>
