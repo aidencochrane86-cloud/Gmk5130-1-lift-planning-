@@ -163,7 +163,6 @@ function calculate() {
     return;
   }
 
-  /* ✅ REAL BEST CANDIDATE */
   const best = candidates[0];
 
   /* ================== GEOMETRY ================== */
@@ -186,11 +185,14 @@ function calculate() {
   radiusLabel.textContent = `R = ${radius.toFixed(1)} m`;
   tipHeightLabel.textContent = `H = ${tipHeight.toFixed(1)} m`;
 
-  /* ================== OUTPUT ================== */
+  /* ================== OUTPUT (RESTORED FIELDS) ================== */
   result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
     <p><b>Configuration:</b> ${best.config}</p>
+    <p><b>SLI code:</b> ${META.sli || "—"}</p>
+    <p><b>Ballast:</b> ${ballast.selectedOptions[0].text}</p>
     <p><b>Boom length:</b> ${best.boom} m</p>
+    <p><b>Outriggers:</b> ${META.outriggers || "—"}</p>
     <p><b>Utilisation:</b>
       <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
     </p>
