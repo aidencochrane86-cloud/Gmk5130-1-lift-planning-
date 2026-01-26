@@ -34,56 +34,71 @@ class PressureResponse(BaseModel):
     utilisation_percent: float
     warnings: list[str]
 
-
 @app.post("/calculate-pressure", response_model=PressureResponse)
 def calculate_pressure(request: PressureRequest):
     """
-    MOCK IMPLEMENTATION
-    Real calculation will be added later
+    REAL IMPLEMENTATION – dataset driven
     """
 
+    # --- Dataset lookup ---
     match = next(
-    (
-        row for row in DATASET
-        if row["crane_model"] == request.crane_model
-        and row["counterweight_t"] == request.counterweight_t
-        and row["outrigger_base"] == request.outrigger_base
-        and row["radius_m"] == request.radius_m
-        and row["slew_position"] == request.slew_position
-    ),
-    None
-)
+        (
+            row for row in DATASET
+            if row["crane_model"] == request.crane_model
+            and float(row["counterweight_t"]) == float(request.counterweight_t)
+            and row["outrigger_base"] == request.outrigger_base
+            and float(row["radius_m"]) == float(request.radius_m)
+            and row["slew_position"] == request.slew_position
+        ),
+        None
+    )
 
-if match is None:
-    return {
-        "status": "ERROR",
-        "governing_outrigger": "",
-        "governing_load_t": 0,
-        "governing_load_kN": 0,
-        "bearing_area_m2": 0,
-        "ground_pressure_kPa": 0,
-        "utilisation_percent": 0,
-        "warnings": [
-            "Configuration not found in dataset"
-        ]
-    }
+    if match is None:
+        return {
+            "status": "ERROR",
+            "governing_outrigger": "",
+            "governing_load_t": 0,
+            "governing_load_kN": 0,
+            "bearing_area_m2": 0,
+            "ground_pressure_kPa": 0,
+            "utilisation_percent": 0,
+            "warnings": [
+                "Configuration not found in dataset"
+            ]
+        }
 
-governing_load_t = match["governing_load_t"]
-
+    governing_load_t = match["governing_load_t"]
     governing_load_kN = governing_load_t * 9.81
+
+    # --- Bearing area ---
     bearing_area = request.pad_width_m * request.pad_length_m
+
+    if bearing_area <= 0:
+        return {
+            "status": "ERROR",
+            "governing_outrigger": match["governing_outrigger"],
+            "governing_load_t": governing_load_t,
+            "governing_load_kN": round(governing_load_kN, 1),
+            "bearing_area_m2": bearing_area,
+            "ground_pressure_kPa": 0,
+            "utilisation_percent": 0,
+            "warnings": [
+                "Invalid pad dimensions: bearing area must be greater than zero"
+            ]
+        }
+
+    # --- Pressure calculation ---
     ground_pressure = governing_load_kN / bearing_area
     utilisation = (ground_pressure / request.soil_capacity_kPa) * 100
 
     return {
         "status": "OK",
-        "governing_outrigger": "FR",
+        "governing_outrigger": match["governing_outrigger"],
         "governing_load_t": governing_load_t,
         "governing_load_kN": round(governing_load_kN, 1),
         "bearing_area_m2": round(bearing_area, 2),
         "ground_pressure_kPa": round(ground_pressure, 1),
         "utilisation_percent": round(utilisation, 1),
-        "warnings": [
-            "Mock response – real chart data not yet connected"
-        ]
+        "warnings": []
     }
+
