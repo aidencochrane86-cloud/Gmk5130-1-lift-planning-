@@ -24,35 +24,56 @@ sheet_counterweights = {
 # Read Excel & build dataset
 # -----------------------------
 for sheet, counterweight in sheet_counterweights.items():
-    df = pd.read_excel(EXCEL_PATH, sheet_name=sheet)
+    raw = pd.read_excel(EXCEL_PATH, sheet_name=sheet, header=None)
 
-    # Only keep rows that actually contain lift data
-    df = df.dropna(subset=["Radius_m", "Slew_position"])
+    current_base = None
+    headers = None
 
-    for _, row in df.iterrows():
+    for _, row in raw.iterrows():
+        first_cell = str(row[0]).strip()
+
+        # Detect outrigger base line
+        if first_cell.startswith("Outrigger base:"):
+            current_base = first_cell.replace("Outrigger base:", "").strip()
+            headers = None
+            continue
+
+        # Detect header row
+        if first_cell == "Counterweight_t":
+            headers = list(row)
+            continue
+
+        # Skip until headers and base are known
+        if headers is None or current_base is None:
+            continue
+
+        # Build data row
+        record = dict(zip(headers, row))
+
+        # Skip empty rows
+        if pd.isna(record.get("Radius_m")) or pd.isna(record.get("Slew_position")):
+            continue
+
         outrigger_loads = {
-            "FL": row.get("FL_t"),
-            "FR": row.get("FR_t"),
-            "RL": row.get("RL_t"),
-            "RR": row.get("RR_t"),
+            "FL": record.get("FL_t"),
+            "FR": record.get("FR_t"),
+            "RL": record.get("RL_t"),
+            "RR": record.get("RR_t"),
         }
 
-        # Find governing outrigger
         governing_outrigger = max(
             outrigger_loads,
             key=lambda k: outrigger_loads[k]
         )
 
-        governing_load_t = float(outrigger_loads[governing_outrigger])
-
         records.append({
             "crane_model": CRANE_MODEL,
             "counterweight_t": counterweight,
-            "outrigger_base": row["Outrigger_base"],
-            "radius_m": float(row["Radius_m"]),
-            "slew_position": row["Slew_position"],
+            "outrigger_base": current_base,
+            "radius_m": float(record["Radius_m"]),
+            "slew_position": record["Slew_position"],
             "governing_outrigger": governing_outrigger,
-            "governing_load_t": governing_load_t
+            "governing_load_t": float(outrigger_loads[governing_outrigger])
         })
 
 # -----------------------------
