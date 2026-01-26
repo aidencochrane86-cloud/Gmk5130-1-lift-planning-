@@ -138,57 +138,70 @@ function loadData(key) {
     });
 }
 
-function calculate() {
-  const load = +loadInput.value;
-  const rigging = riggingInput.value ? +riggingInput.value : 0;
+function computeCandidates({
+  charts,
+  load,
+  rigging,
+  radius,
+  obsR,
+  obsH,
+  margin
+}) {
   const totalLoad = load + rigging;
-  const radius = +radiusInput.value;
-
-  if (!load || !radius) return;
-
-  pivot.style.visibility = boomLine.style.visibility =
-  radiusLine.style.visibility = tipHeightLine.style.visibility = "visible";
-
-  const obsR = +obsRadiusInput.value;
-  const obsH = +obsHeightInput.value;
-  const margin = +marginInput.value || 0;
   const obstructionActive = obsR && obsH;
 
-  let candidates = [];
+  return charts
+    .map(r => {
+      if (r.radius < radius) return null;
+      if (r.capacity < totalLoad) return null;
 
-  DATA.forEach(r => {
-    if (r.radius < radius) return;
-    if (r.capacity < totalLoad) return;
+      const tipHeight = Math.sqrt(
+        Math.max(0, r.boom * r.boom - radius * radius)
+      );
 
-    const tipHeight = Math.sqrt(Math.max(0, r.boom**2 - radius**2));
+      if (obstructionActive) {
+        const boomHeightAtObs = tipHeight * (obsR / radius);
+        const clearance = boomHeightAtObs - obsH;
+        if (clearance < margin) return null;
+      }
 
-    if (obstructionActive) {
-      const boomHeightAtObs =
-        tipHeight * (obsR / radius);
+      return {
+        boom: r.boom,
+        capacity: r.capacity,
+        config: r.config,
+        util: (totalLoad / r.capacity) * 100,
+        tipHeight
+      };
+    })
+    .filter(Boolean);
+}
 
-      const clearance =
-        boomHeightAtObs - obsH;
+function selectBestCandidate(candidates) {
+  if (!candidates.length) return null;
 
-      if (clearance < margin) return;
-    }
+  // Lowest utilisation (current behaviour)
+  return [...candidates].sort((a, b) => a.util - b.util)[0];
+}
 
-    candidates.push({
-      boom: r.boom,
-      capacity: r.capacity,
-      config: r.config,
-      util: totalLoad / r.capacity * 100,
-      tipHeight
-    });
-  });
+function selectClosestTo80(candidates) {
+  if (!candidates.length) return null;
 
-  if (!candidates.length) {
-    result.innerHTML = `<p class="fail">Lift not possible</p>`;
-    return;
-  }
+  return [...candidates]
+    .sort((a, b) =>
+      Math.abs(a.util - 80) - Math.abs(b.util - 80)
+    )[0];
+}
 
-  candidates.sort((a,b)=>a.util-b.util);
-  const best = candidates[0];
+function renderLift(best, context) {
+  const {
+    radius,
+    obsR,
+    obsH,
+    margin,
+    totalLoad
+  } = context;
 
+  // --- Boom geometry ---
   const boomX = pivotX + radius * SVG_SCALE;
   const boomY = pivotY - best.tipHeight * SVG_SCALE;
 
@@ -208,11 +221,15 @@ function calculate() {
   tipHeightLine.setAttribute("x2", boomX);
   tipHeightLine.setAttribute("y2", pivotY);
 
+  // --- Obstruction + clearance (Step A) ---
+  const obstructionActive = obsR && obsH;
+
   if (obstructionActive) {
     const obsX = pivotX + obsR * SVG_SCALE;
     const obsTopY = groundY - obsH * SVG_SCALE;
 
-    obstructionRect.style.visibility = clearanceLine.style.visibility = "visible";
+    obstructionRect.style.visibility =
+      clearanceLine.style.visibility = "visible";
 
     obstructionRect.setAttribute("x", obsX - 15);
     obstructionRect.setAttribute("y", obsTopY);
@@ -229,19 +246,86 @@ function calculate() {
       pivotY - boomHeightAtObs * SVG_SCALE
     );
   } else {
-    obstructionRect.style.visibility = clearanceLine.style.visibility = "hidden";
+    obstructionRect.style.visibility =
+      clearanceLine.style.visibility = "hidden";
   }
 
+  // --- Result panel ---
   result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
+    <p><b>Configuration:</b> ${best.config}</p>
     <p><b>Boom length:</b> ${best.boom} m</p>
+    <p><b>Working radius:</b> ${radius.toFixed(2)} m</p>
     <p><b>Utilisation:</b>
-      <span class="${utilClass(best.util)}">${best.util.toFixed(1)}%</span>
+      <span class="${utilClass(best.util)}">
+        ${best.util.toFixed(1)}%
+      </span>
     </p>
     <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
   `;
 }
+function calculate() {
+  const load = +loadInput.value;
+  const rigging = riggingInput.value ? +riggingInput.value : 0;
+  const totalLoad = load + rigging;
+  const radius = +radiusInput.value;
 
+  if (!load || !radius) return;
+
+  pivot.style.visibility = boomLine.style.visibility =
+  radiusLine.style.visibility = tipHeightLine.style.visibility = "visible";
+
+  const obsR = +obsRadiusInput.value;
+  const obsH = +obsHeightInput.value;
+  const margin = +marginInput.value || 0;
+  const obstructionActive = obsR && obsH;
+
+  const candidates = computeCandidates({
+  charts: DATA,
+  load,
+  rigging,
+  radius,
+  obsR,
+  obsH,
+  margin
+});
+
+  if (!candidates.length) {
+  result.innerHTML = `<p class="fail">Lift not possible</p>`;
+
+  // 🔹 Tiny improvement: hide old obstruction visuals
+  obstructionRect.style.visibility =
+    clearanceLine.style.visibility = "hidden";
+
+  return;
+}
+
+  const best = selectBestCandidate(candidates);
+  
+  const target80 = selectClosestTo80(candidates);
+  
+  renderLift(best, {
+    radius,
+    obsR,
+    obsH,
+    margin,
+    totalLoad
+  });
+
+if (target80 && target80 !== best) {
+  result.innerHTML += `
+    <hr>
+    <p><b>Alternative (≈80% utilisation)</b></p>
+    <p><b>Configuration:</b> ${target80.config}</p>
+    <p><b>Boom length:</b> ${target80.boom} m</p>
+    <p><b>Utilisation:</b>
+      <span class="${utilClass(target80.util)}">
+        ${target80.util.toFixed(1)}%
+      </span>
+    </p>
+  `;
+}
+}
 [loadInput, riggingInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput]
 .forEach(e => e.addEventListener("input", calculate));
