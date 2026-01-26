@@ -1,0 +1,11 @@
+[
+  {
+    "crane_model": "GMK5130-1",
+    "counterweight_t": 23.5,
+    "outrigger_base": "Full",
+    "radius_m": 16,
+    "slew_position": "45_over_side",
+    "governing_outrigger": "FR",
+    "governing_load_t": 43.0
+  }
+]
