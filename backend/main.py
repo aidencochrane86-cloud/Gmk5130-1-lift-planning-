@@ -42,7 +42,34 @@ def calculate_pressure(request: PressureRequest):
     Real calculation will be added later
     """
 
-    governing_load_t = 43.0
+    match = next(
+    (
+        row for row in DATASET
+        if row["crane_model"] == request.crane_model
+        and row["counterweight_t"] == request.counterweight_t
+        and row["outrigger_base"] == request.outrigger_base
+        and row["radius_m"] == request.radius_m
+        and row["slew_position"] == request.slew_position
+    ),
+    None
+)
+
+if match is None:
+    return {
+        "status": "ERROR",
+        "governing_outrigger": "",
+        "governing_load_t": 0,
+        "governing_load_kN": 0,
+        "bearing_area_m2": 0,
+        "ground_pressure_kPa": 0,
+        "utilisation_percent": 0,
+        "warnings": [
+            "Configuration not found in dataset"
+        ]
+    }
+
+governing_load_t = match["governing_load_t"]
+
     governing_load_kN = governing_load_t * 9.81
     bearing_area = request.pad_width_m * request.pad_length_m
     ground_pressure = governing_load_kN / bearing_area
