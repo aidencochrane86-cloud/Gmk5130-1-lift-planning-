@@ -1,6 +1,14 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+import json
+from pathlib import Path
+
+DATASET_PATH = Path(__file__).parent / "dataset.json"
+
+with open(DATASET_PATH, "r") as f:
+    DATASET = json.load(f)
+
 app = FastAPI(title="Outrigger Pressure API")
 
 # ---- Request model ----
