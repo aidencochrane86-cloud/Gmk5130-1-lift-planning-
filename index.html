@@ -312,7 +312,7 @@ function calculate() {
     totalLoad
   });
 
-if (target80 && target80 !== best) {
+  if (target80 && target80.config !== best.config) {
   result.innerHTML += `
     <hr>
     <p><b>Alternative (≈80% utilisation)</b></p>
