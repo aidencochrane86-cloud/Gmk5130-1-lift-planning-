@@ -33,6 +33,15 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <span class="badge basic">Mode: Basic Mode</span>
 </div>
 
+<div id="basicModeWarning"
+     class="card"
+     style="
+       display:none;
+       border-left:4px solid #b42318;
+       background:#fff5f5;
+     ">
+</div>
+
 <div class="card">
 <h2>Inputs</h2>
 
@@ -90,7 +99,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 </div>
 
 <!-- STEP 2 START -->
-<div class="card">
+<div class="card" id="step2Card">
   <h2>Step 2 – Outrigger Reactions (Indicative)</h2>
 
   <p style="color:#b45309;font-size:0.9em;">
@@ -178,30 +187,32 @@ const basicModeState = getBasicModeState(SELECTED_CRANE);
 
 // UI elements
 const warningBox = document.getElementById("basicModeWarning");
-const step2Card = document.querySelector("h2")
-  ?.closest(".card"); // Step 2 card (safe)
+const step2Card = document.getElementById("step2Card"); // Step 2 card (safe)
 
 // Apply UI rules
-if (!basicModeState.allowed) {
-  warningBox.style.display = "block";
-  warningBox.innerHTML = `
-    <h3 style="margin-top:0;">⚠ Basic Mode Limitation</h3>
-    <p>${basicModeState.message}</p>
-  `;
-
-  // Disable Step 2 output
-  if (step2Card) {
-    step2Card.style.opacity = "0.4";
-    step2Card.style.pointerEvents = "none";
-  }
+if (!warningBox) {
+  console.warn("basicModeWarning element missing");
 } else {
-  warningBox.style.display = "block";
-  warningBox.style.borderLeftColor = "#1a7f37";
-  warningBox.style.background = "#f0fff4";
-  warningBox.innerHTML = `
-    <h3 style="margin-top:0;">ℹ Basic Mode Assumption</h3>
-    <p>${basicModeState.message}</p>
-  `;
+  if (!basicModeState.allowed) {
+    warningBox.style.display = "block";
+    warningBox.innerHTML = `
+      <h3 style="margin-top:0;">⚠ Basic Mode Limitation</h3>
+      <p>${basicModeState.message}</p>
+    `;
+
+    if (step2Card) {
+      step2Card.style.opacity = "0.4";
+      step2Card.style.pointerEvents = "none";
+    }
+  } else {
+    warningBox.style.display = "block";
+    warningBox.style.borderLeftColor = "#1a7f37";
+    warningBox.style.background = "#f0fff4";
+    warningBox.innerHTML = `
+      <h3 style="margin-top:0;">ℹ Basic Mode Assumption</h3>
+      <p>${basicModeState.message}</p>
+    `;
+  }
 }
 
 const SVG_SCALE = 6;
