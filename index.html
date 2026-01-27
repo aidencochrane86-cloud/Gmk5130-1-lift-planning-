@@ -164,7 +164,7 @@ function computeCandidates({
   margin
 }) {
   const totalLoad = load + rigging;
-  const obstructionActive = obsR && obsH;
+  const obstructionActive = obsR && obsH && obsR < radius;
 
   return charts
     .map(r => {
