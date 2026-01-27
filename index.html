@@ -89,6 +89,20 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 </div>
 
 <div id="result">Select inputs.</div>
+<div class="card">
+  <h2>Step 2 – Outrigger Reactions (Indicative)</h2>
+
+  <p style="color:#b45309;font-size:0.9em;">
+    Indicative reactions only. Manufacturer outrigger load charts required
+    for verified AP calculations and ground bearing checks.
+  </p>
+
+  <label>Slew angle (°)</label>
+  <input id="slewInput" type="number" value="360">
+
+  <div id="reactionOutput" style="margin-top:12px;">
+    Enter Step 1 inputs to calculate reactions.
+  </div>
 </div>
 
 <script>
@@ -266,6 +280,7 @@ function renderLift(best, context) {
     <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
   `;
 }
+
 function calculate() {
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
@@ -290,7 +305,37 @@ function calculate() {
   obsR,
   obsH,
   margin
+});// -------------------------------
+// Step 2 – Run indicative reactions
+// -------------------------------
+const slewDeg =
+  document.getElementById("slewInput")
+    ? +document.getElementById("slewInput").value
+    : 360;
+
+const reactionResult = calculateIndicativeReactions({
+  slewDeg,
+  radius,
+  totalLoad
 });
+
+const r = reactionResult.reactions;
+
+document.getElementById("reactionOutput").innerHTML = `
+  <p><b>FL:</b> ${r.FL.toFixed(1)} t</p>
+  <p><b>FR:</b> ${r.FR.toFixed(1)} t</p>
+  <p><b>RL:</b> ${r.RL.toFixed(1)} t</p>
+  <p><b>RR:</b> ${r.RR.toFixed(1)} t</p>
+
+  <p><b>Governing leg:</b>
+    ${reactionResult.governing[0]}
+    (${reactionResult.governing[1].toFixed(1)} t)
+  </p>
+
+  <p style="font-size:0.85em;color:#666;">
+    Total reaction sum: ${reactionResult.sum.toFixed(1)} t
+  </p>
+`;
 
   if (!candidates.length) {
   result.innerHTML = `<p class="fail">Lift not possible</p>`;
@@ -334,6 +379,9 @@ function calculate() {
 
 ballast.addEventListener("change", () => loadData(ballast.value));
 loadData(ballast.value);
+document
+  .getElementById("slewInput")
+  .addEventListener("input", calculate);
 </script>
 
 </body>
