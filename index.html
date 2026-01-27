@@ -1,10 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Lift Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
 body { font-family: Arial, sans-serif; background:#f4f6f8; padding:16px; }
 .card { background:#fff; padding:16px; margin-bottom:16px; border-radius:8px; }
@@ -17,7 +17,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 .util-green { color:#1a7f37; font-weight:bold; }
 .util-amber { color:#b26a00; font-weight:bold; }
 .util-red { color:#b42318; font-weight:bold; }
-.alt { background:#fff8e1; border-left:4px solid #f4b400; padding:12px; margin-top:12px; }
 
 #boom, #radiusLine, #tipHeightLine, #obstruction, #clearanceLine {
   visibility: hidden;
@@ -75,13 +74,11 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
 
   <line id="boom" stroke="#FFD200" stroke-width="8" stroke-linecap="round"/>
-
   <line id="radiusLine" stroke="#888" stroke-dasharray="6 4" stroke-width="2"/>
   <line id="tipHeightLine" stroke="#888" stroke-dasharray="6 4" stroke-width="2"/>
 
   <rect id="obstruction" width="30" fill="#ccc" opacity="0.9"/>
 
-  <!-- Step A: vertical clearance only -->
   <line id="clearanceLine"
         stroke="#e74c3c"
         stroke-dasharray="4 4"
@@ -92,9 +89,30 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <div id="result">Select inputs.</div>
 </div>
 
+<!-- STEP 2 START -->
+<div class="card">
+  <h2>Step 2 – Outrigger Reactions (Indicative)</h2>
+
+  <p style="color:#b45309;font-size:0.9em;">
+    Indicative reactions only. Manufacturer outrigger load charts are required
+    for verified AP calculations and ground bearing checks.
+  </p>
+
+  <label>Slew angle (°)</label>
+  <input id="slewInput" type="number" value="360">
+
+  <div id="reactionOutput" style="margin-top:12px;">
+    Enter Step 1 inputs to calculate reactions.
+  </div>
+</div>
+
+<!-- STEP 2 END -->
 <script>
-  // BASIC MODE v1.0
-// Behaviour frozen. Data may expand but logic must not change.
+
+// ==========================
+// BASIC MODE v1.0 (LOCKED)
+// ==========================
+
 const SVG_SCALE = 6;
 const groundY = 340;
 const PIVOT_HEIGHT_M = 2;
@@ -141,70 +159,40 @@ function loadData(key) {
     });
 }
 
-function computeCandidates({
-  charts,
-  load,
-  rigging,
-  radius,
-  obsR,
-  obsH,
-  margin
-}) {
+function computeCandidates({ charts, load, rigging, radius, obsR, obsH, margin }) {
   const totalLoad = load + rigging;
-  const obstructionActive = obsR && obsH;
+  const obstructionActive = obsR && obsH && obsR < radius;
 
-  return charts
-    .map(r => {
-      if (r.radius < radius) return null;
-      if (r.capacity < totalLoad) return null;
+  return charts.map(r => {
+    if (r.radius < radius) return null;
+    if (r.capacity < totalLoad) return null;
 
-      const tipHeight = Math.sqrt(
-        Math.max(0, r.boom * r.boom - radius * radius)
-      );
+    const tipHeight = Math.sqrt(
+      Math.max(0, r.boom * r.boom - radius * radius)
+    );
 
-      if (obstructionActive) {
-        const boomHeightAtObs = tipHeight * (obsR / radius);
-        const clearance = boomHeightAtObs - obsH;
-        if (clearance < margin) return null;
-      }
+    if (obstructionActive) {
+      const boomHeightAtObs = tipHeight * (obsR / radius);
+      const clearance = boomHeightAtObs - obsH;
+      if (clearance < margin) return null;
+    }
 
-      return {
-        boom: r.boom,
-        capacity: r.capacity,
-        config: r.config,
-        util: (totalLoad / r.capacity) * 100,
-        tipHeight
-      };
-    })
-    .filter(Boolean);
+    return {
+      boom: r.boom,
+      capacity: r.capacity,
+      config: r.config,
+      util: (totalLoad / r.capacity) * 100,
+      tipHeight
+    };
+  }).filter(Boolean);
 }
 
 function selectBestCandidate(candidates) {
-  if (!candidates.length) return null;
-
-  // Lowest utilisation (current behaviour)
   return [...candidates].sort((a, b) => a.util - b.util)[0];
 }
 
-function selectClosestTo80(candidates) {
-  if (!candidates.length) return null;
+function renderLift(best, { radius, obsR, obsH, margin, totalLoad }) {
 
-  return [...candidates]
-    .sort((a, b) =>
-      Math.abs(a.util - 80) - Math.abs(b.util - 80)
-    )[0];
-}
-
-function renderLift(best, context) {
-  const {
-    radius,
-    obsR,
-    obsH,
-    margin,
-    totalLoad
-  } = context;
-
-  // --- Boom geometry ---
   const boomX = pivotX + radius * SVG_SCALE;
   const boomY = pivotY - best.tipHeight * SVG_SCALE;
 
@@ -224,7 +212,6 @@ function renderLift(best, context) {
   tipHeightLine.setAttribute("x2", boomX);
   tipHeightLine.setAttribute("y2", pivotY);
 
-  // --- Obstruction + clearance (Step A) ---
   const obstructionActive = obsR && obsH;
 
   if (obstructionActive) {
@@ -238,8 +225,7 @@ function renderLift(best, context) {
     obstructionRect.setAttribute("y", obsTopY);
     obstructionRect.setAttribute("height", obsH * SVG_SCALE);
 
-    const boomHeightAtObs =
-      best.tipHeight * (obsR / radius);
+    const boomHeightAtObs = best.tipHeight * (obsR / radius);
 
     clearanceLine.setAttribute("x1", obsX - 15);
     clearanceLine.setAttribute("x2", obsX - 15);
@@ -253,7 +239,6 @@ function renderLift(best, context) {
       clearanceLine.style.visibility = "hidden";
   }
 
-  // --- Result panel ---
   result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
     <p><b>Configuration:</b> ${best.config}</p>
@@ -267,6 +252,7 @@ function renderLift(best, context) {
     <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
   `;
 }
+
 function calculate() {
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
@@ -275,38 +261,34 @@ function calculate() {
 
   if (!load || !radius) return;
 
-  pivot.style.visibility = boomLine.style.visibility =
-  radiusLine.style.visibility = tipHeightLine.style.visibility = "visible";
+  pivot.style.visibility =
+    boomLine.style.visibility =
+    radiusLine.style.visibility =
+    tipHeightLine.style.visibility = "visible";
 
   const obsR = +obsRadiusInput.value;
   const obsH = +obsHeightInput.value;
   const margin = +marginInput.value || 0;
-  const obstructionActive = obsR && obsH;
 
   const candidates = computeCandidates({
-  charts: DATA,
-  load,
-  rigging,
-  radius,
-  obsR,
-  obsH,
-  margin
-});
+    charts: DATA,
+    load,
+    rigging,
+    radius,
+    obsR,
+    obsH,
+    margin
+  });
 
   if (!candidates.length) {
-  result.innerHTML = `<p class="fail">Lift not possible</p>`;
-
-  // 🔹 Tiny improvement: hide old obstruction visuals
-  obstructionRect.style.visibility =
-    clearanceLine.style.visibility = "hidden";
-
-  return;
-}
+    result.innerHTML = `<p class="fail">Lift not possible</p>`;
+    obstructionRect.style.visibility =
+      clearanceLine.style.visibility = "hidden";
+    return;
+  }
 
   const best = selectBestCandidate(candidates);
-  
-  const target80 = selectClosestTo80(candidates);
-  
+
   renderLift(best, {
     radius,
     obsR,
@@ -314,27 +296,19 @@ function calculate() {
     margin,
     totalLoad
   });
+}
 
-  if (target80 && target80.config !== best.config) {
-  result.innerHTML += `
-    <hr>
-    <p><b>Alternative (≈80% utilisation)</b></p>
-    <p><b>Configuration:</b> ${target80.config}</p>
-    <p><b>Boom length:</b> ${target80.boom} m</p>
-    <p><b>Utilisation:</b>
-      <span class="${utilClass(target80.util)}">
-        ${target80.util.toFixed(1)}%
-      </span>
-    </p>
-  `;
-}
-}
 [loadInput, riggingInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput]
 .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
 loadData(ballast.value);
+
+document
+  .getElementById("slewInput")
+  .addEventListener("input", calculate);
+
 </script>
 
 </body>
