@@ -113,6 +113,59 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 // BASIC MODE v1.0 (LOCKED)
 // ==========================
 
+// ==========================
+// STEP 1 – BASIC MODE CLASSIFICATION (LOCKED)
+// Applies ONLY to cranes rated 50–130 t
+// ==========================
+
+// Basic Mode classification limits
+const BASIC_MODE_CLASS = {
+  MIN: 50,
+  MAX: 130
+};
+
+// Crane registry (extend later or replace with JSON)
+const CRANES = {
+  "GMK5130-1": {
+    model: "GMK5130-1",
+    ratedCapacity: 130
+  }
+  // Add more cranes here later
+};
+
+// Returns Basic Mode state for selected crane
+function getBasicModeState(crane) {
+  const capacity = crane.ratedCapacity;
+
+  if (capacity < BASIC_MODE_CLASS.MIN) {
+    return {
+      allowed: false,
+      reason: "BELOW_CLASS",
+      message:
+        "Crane is outside the 50–130 t Basic Mode classification. " +
+        "Indicative outrigger loading is not shown."
+    };
+  }
+
+  if (capacity > BASIC_MODE_CLASS.MAX) {
+    return {
+      allowed: false,
+      reason: "ABOVE_CLASS",
+      message:
+        "Crane exceeds Basic Mode classification. " +
+        "AP Mode is required for ground loading assessment."
+    };
+  }
+
+  return {
+    allowed: true,
+    reason: "WITHIN_CLASS",
+    message:
+      "Indicative outrigger loading based on conservative assumptions " +
+      "for the 50–130 t crane class."
+  };
+}
+
 const SVG_SCALE = 6;
 const groundY = 340;
 const PIVOT_HEIGHT_M = 2;
