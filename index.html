@@ -166,6 +166,44 @@ function getBasicModeState(crane) {
   };
 }
 
+// ==========================
+// BASIC MODE – UI WIRING
+// ==========================
+
+// Selected crane (for now hard-coded)
+const SELECTED_CRANE = CRANES["GMK5130-1"];
+
+// Get Basic Mode state
+const basicModeState = getBasicModeState(SELECTED_CRANE);
+
+// UI elements
+const warningBox = document.getElementById("basicModeWarning");
+const step2Card = document.querySelector("h2")
+  ?.closest(".card"); // Step 2 card (safe)
+
+// Apply UI rules
+if (!basicModeState.allowed) {
+  warningBox.style.display = "block";
+  warningBox.innerHTML = `
+    <h3 style="margin-top:0;">⚠ Basic Mode Limitation</h3>
+    <p>${basicModeState.message}</p>
+  `;
+
+  // Disable Step 2 output
+  if (step2Card) {
+    step2Card.style.opacity = "0.4";
+    step2Card.style.pointerEvents = "none";
+  }
+} else {
+  warningBox.style.display = "block";
+  warningBox.style.borderLeftColor = "#1a7f37";
+  warningBox.style.background = "#f0fff4";
+  warningBox.innerHTML = `
+    <h3 style="margin-top:0;">ℹ Basic Mode Assumption</h3>
+    <p>${basicModeState.message}</p>
+  `;
+}
+
 const SVG_SCALE = 6;
 const groundY = 340;
 const PIVOT_HEIGHT_M = 2;
