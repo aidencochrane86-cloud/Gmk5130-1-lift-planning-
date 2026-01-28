@@ -438,8 +438,10 @@ function getWorstCaseConfigs(configs) {
     }
   });
 
-  return Object.values(map);
+  return Object.values(map)
+    .sort((a, b) => a.utilisation_percent - b.utilisation_percent);
 }
+
 
 /* ================================
    AP MODE GATE – STEP 2
