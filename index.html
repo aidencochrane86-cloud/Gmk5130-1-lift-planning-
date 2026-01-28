@@ -426,6 +426,20 @@ function renderApConfigurations(configs) {
   });
 }
 
+// AP MODE – NORMALISATION (STEP 2)
+function getWorstCaseConfigs(configs) {
+  const map = {};
+
+  configs.forEach(c => {
+    const key = `${c.config}__${c.boom_m}`;
+
+    if (!map[key] || c.utilisation_percent > map[key].utilisation_percent) {
+      map[key] = c;
+    }
+  });
+
+  return Object.values(map);
+}
 
 /* ================================
    AP MODE GATE – STEP 2
@@ -442,7 +456,10 @@ enterApModeBtn.addEventListener("click", () => {
   document.getElementById("apMode").style.display = "block";
 
   // Render configuration cards
-  renderApConfigurations(window.basicModeResult.feasibleConfigurations);
+  renderApConfigurations(
+  getWorstCaseConfigs(window.basicModeResult.feasibleConfigurations)
+);
+
 
   console.log("AP Mode entered with:", window.basicModeResult);
 
