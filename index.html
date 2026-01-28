@@ -325,7 +325,14 @@ const obstructionActive =
 
   if (obstructionActive) {
     const obsX = pivotX + obsR * SVG_SCALE;
-    const obsTopY = groundY - obsH * SVG_SCALE;
+    // Prevent obstruction overlapping boom root (pivot height)
+const obsEffectiveHeight = Math.min(
+  obsH,
+  PIVOT_HEIGHT_M
+);
+
+const obsTopY =
+  groundY - obsEffectiveHeight * SVG_SCALE;
 
     obstructionRect.style.visibility =
       clearanceLine.style.visibility = "visible";
