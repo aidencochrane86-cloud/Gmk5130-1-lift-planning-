@@ -314,7 +314,14 @@ function renderLift(best, { radius, obsR, obsH, margin, totalLoad }) {
   tipHeightLine.setAttribute("x2", boomX);
   tipHeightLine.setAttribute("y2", pivotY);
 
-  const obstructionActive = obsR && obsH;
+  // Ignore obstructions inside crane footprint (Basic Mode)
+const MIN_OBSTRUCTION_RADIUS = 4; // metres – conservative footprint
+
+const obstructionActive =
+  obsR &&
+  obsH &&
+  obsR >= MIN_OBSTRUCTION_RADIUS &&
+  obsR < radius;
 
   if (obstructionActive) {
     const obsX = pivotX + obsR * SVG_SCALE;
