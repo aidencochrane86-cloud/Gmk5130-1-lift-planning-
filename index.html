@@ -14,9 +14,6 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 .badge { display:inline-block; margin-top:6px; padding:4px 8px; color:#fff; border-radius:12px; font-size:0.8em; }
 .badge.basic { background:#0066cc; }
 .fail { color:#b42318; font-weight:bold; }
-.util-green { color:#1a7f37; font-weight:bold; }
-.util-amber { color:#b26a00; font-weight:bold; }
-.util-red { color:#b42318; font-weight:bold; }
 
 #boom, #radiusLine, #tipHeightLine, #obstruction, #clearanceLine {
   visibility: hidden;
@@ -29,8 +26,134 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <div class="card meta">
   <strong>Crane:</strong> GMK5130-1<br>
   <strong>Slew:</strong> 360°<br>
-  <span id="metaBallast"><strong>Ballast:</strong> —</span><br>
   <span class="badge basic">Mode: Basic Mode</span>
 </div>
 
-<div id="basicModeWarning"
+<div class="card">
+<h2>Inputs</h2>
+
+<label>Ballast</label>
+<select id="ballast">
+  <option value="40_1t">40.1t</option>
+  <option value="23_5t">23.5t</option>
+</select>
+
+<label>Load (t)</label>
+<input id="load" type="number">
+
+<label>Block &amp; rigging (t)</label>
+<input id="rigging" type="number">
+
+<label>Working Radius (m)</label>
+<input id="radius" type="number">
+
+<label>Obstruction Radius (m)</label>
+<input id="obsRadius" type="number">
+
+<label>Obstruction Height (m)</label>
+<input id="obsHeight" type="number">
+
+<label>Building Clearance (m)</label>
+<input id="margin" type="number">
+</div>
+
+<div class="card">
+<h2>Result</h2>
+
+<svg viewBox="0 0 800 400" width="100%" height="260">
+  <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
+  <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
+  <line id="boom" stroke="#FFD200" stroke-width="8" stroke-linecap="round"/>
+  <line id="radiusLine" stroke="#888" stroke-dasharray="6 4"/>
+  <line id="tipHeightLine" stroke="#888" stroke-dasharray="6 4"/>
+  <rect id="obstruction" width="30" fill="#ccc"/>
+  <line id="clearanceLine" stroke="#e74c3c" stroke-dasharray="4 4"/>
+</svg>
+
+<div id="result">Select inputs.</div>
+</div>
+
+<script>
+const SVG_SCALE = 6;
+const groundY = 340;
+const pivotX = 130;
+const pivotY = groundY - (2 * SVG_SCALE);
+
+const boom = document.getElementById("boom");
+const radiusLine = document.getElementById("radiusLine");
+const tipHeightLine = document.getElementById("tipHeightLine");
+const obstruction = document.getElementById("obstruction");
+const clearanceLine = document.getElementById("clearanceLine");
+const pivot = document.getElementById("pivot");
+
+function calculate() {
+  const load = +document.getElementById("load").value;
+  const rigging = +document.getElementById("rigging").value || 0;
+  const radius = +document.getElementById("radius").value;
+  const obsR = +document.getElementById("obsRadius").value;
+  const obsH = +document.getElementById("obsHeight").value;
+  const margin = +document.getElementById("margin").value || 0;
+
+  if (!load || !radius) return;
+
+  const boomLength = 60;
+  const tipHeight = Math.sqrt(boomLength**2 - radius**2);
+
+  const boomX = pivotX + radius * SVG_SCALE;
+  const boomY = pivotY - tipHeight * SVG_SCALE;
+
+  pivot.setAttribute("cy", pivotY);
+
+  boom.style.visibility = "visible";
+  boom.setAttribute("x1", pivotX);
+  boom.setAttribute("y1", pivotY);
+  boom.setAttribute("x2", boomX);
+  boom.setAttribute("y2", boomY);
+
+  radiusLine.style.visibility = "visible";
+  radiusLine.setAttribute("x1", pivotX);
+  radiusLine.setAttribute("y1", pivotY);
+  radiusLine.setAttribute("x2", boomX);
+  radiusLine.setAttribute("y2", pivotY);
+
+  tipHeightLine.style.visibility = "visible";
+  tipHeightLine.setAttribute("x1", boomX);
+  tipHeightLine.setAttribute("y1", boomY);
+  tipHeightLine.setAttribute("x2", boomX);
+  tipHeightLine.setAttribute("y2", pivotY);
+
+  if (obsR && obsH && obsR < radius) {
+    const obsX = pivotX + obsR * SVG_SCALE;
+    const obsTopY = groundY - obsH * SVG_SCALE;
+
+    obstruction.style.visibility = "visible";
+    obstruction.setAttribute("x", obsX - 15);
+    obstruction.setAttribute("y", obsTopY);
+    obstruction.setAttribute("height", obsH * SVG_SCALE);
+
+    const boomHeightAtObs = tipHeight * (obsR / radius);
+
+    clearanceLine.style.visibility = "visible";
+    clearanceLine.setAttribute("x1", obsX);
+    clearanceLine.setAttribute("x2", obsX);
+    clearanceLine.setAttribute("y1", obsTopY);
+    clearanceLine.setAttribute(
+      "y2",
+      pivotY - boomHeightAtObs * SVG_SCALE
+    );
+  }
+
+  document.getElementById("result").innerHTML = `
+    <p><b>Total lifted load:</b> ${(load + rigging).toFixed(2)} t</p>
+    <p><b>Boom length:</b> ${boomLength} m</p>
+    <p><b>Working radius:</b> ${radius.toFixed(2)} m</p>
+    <p><b>Tip height:</b> ${tipHeight.toFixed(2)} m</p>
+  `;
+}
+
+document.querySelectorAll("input, select")
+  .forEach(e => e.addEventListener("input", calculate));
+</script>
+
+</body>
+</html>
