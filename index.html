@@ -96,7 +96,11 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   Proceed to AP Mode (Engineering Checks)
 </button>
 
+<section id="apMode" class="card" style="display:none;">
+  <h2>AP Mode – Select Configuration</h2>
 
+  <div id="apConfigList"></div>
+</section>
 
 <script>
   // BASIC MODE v1.0
@@ -347,7 +351,8 @@ const basicModeResult = {
   }
 };
 
-Object.freeze(basicModeResult);
+   window.basicModeResult = basicModeResult;
+   Object.freeze(window.basicModeResult);
 /* ===== END STEP 1 ===== */
   
   const target80 = selectClosestTo80(candidates);
@@ -382,6 +387,47 @@ ballast.addEventListener("change", () => loadData(ballast.value));
 loadData(ballast.value);
 
 /* ================================
+   AP MODE – UI RENDER
+   ================================ */
+function renderApConfigurations(configs) {
+  const container = document.getElementById("apConfigList");
+  container.innerHTML = "";
+
+  configs.forEach((c, index) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.cursor = "pointer";
+    card.style.border = "2px solid #ddd";
+    card.style.marginBottom = "12px";
+
+    card.innerHTML = `
+      <p><b>Configuration:</b> ${c.config}</p>
+      <p><b>Boom:</b> ${c.boom_m} m</p>
+      <p><b>Rated capacity:</b> ${c.ratedCapacity_t} t</p>
+      <p><b>Utilisation:</b>
+        <span class="${utilClass(c.utilisation_percent)}">
+          ${c.utilisation_percent.toFixed(1)}%
+        </span>
+      </p>
+    `;
+
+    card.addEventListener("click", () => {
+      document
+        .querySelectorAll("#apConfigList .card")
+        .forEach(el => el.style.border = "2px solid #ddd");
+
+      card.style.border = "2px solid #0066cc";
+
+      window.selectedApConfiguration = c;
+      console.log("AP configuration selected:", c);
+    });
+
+    container.appendChild(card);
+  });
+}
+
+
+/* ================================
    AP MODE GATE – STEP 2
    ================================ */
 const enterApModeBtn = document.getElementById("enterApMode");
@@ -392,7 +438,13 @@ enterApModeBtn.addEventListener("click", () => {
     return;
   }
 
-  console.log("AP Mode entered with:", basicModeResult);
+  // Show AP Mode section
+  document.getElementById("apMode").style.display = "block";
+
+  // Render configuration cards
+  renderApConfigurations(window.basicModeResult.feasibleConfigurations);
+
+  console.log("AP Mode entered with:", window.basicModeResult);
 
   // Lock Basic Mode inputs
   document.querySelectorAll("input, select").forEach(el => {
@@ -401,10 +453,9 @@ enterApModeBtn.addEventListener("click", () => {
 
   enterApModeBtn.disabled = true;
   enterApModeBtn.textContent = "AP Mode Active";
-
-  // AP Mode UI will be added next
 });
 /* ===== END AP MODE GATE ===== */
+
 
 </script>
 
