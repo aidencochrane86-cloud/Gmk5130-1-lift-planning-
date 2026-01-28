@@ -314,6 +314,7 @@ function calculate() {
 }
 
   const best = selectBestCandidate(candidates);
+  const target80 = selectClosestTo80(candidates);
   
   /* ================================
    STEP 1: Freeze Basic Mode output
@@ -337,6 +338,23 @@ const basicModeResult = {
     utilisation_percent: best.util,
     tipHeight_m: best.tipHeight
   },
+  
+  recommended: {
+    best: {
+      config: best.config,
+      boom_m: best.boom,
+      ratedCapacity_t: best.capacity,
+      utilisation_percent: best.util
+    },
+    target80: target80 && target80.config !== best.config
+      ? {
+          config: target80.config,
+          boom_m: target80.boom,
+          ratedCapacity_t: target80.capacity,
+          utilisation_percent: target80.util
+        }
+      : null
+  },
 
   feasibleConfigurations: candidates.map(c => ({
     config: c.config,
@@ -354,8 +372,6 @@ const basicModeResult = {
    window.basicModeResult = basicModeResult;
    Object.freeze(window.basicModeResult);
 /* ===== END STEP 1 ===== */
-  
-  const target80 = selectClosestTo80(candidates);
   
   renderLift(best, {
     radius,
@@ -442,6 +458,41 @@ function getWorstCaseConfigs(configs) {
     .sort((a, b) => a.utilisation_percent - b.utilisation_percent);
 }
 
+function buildApConfigurationList(basicModeResult) {
+  const seen = {};
+  const ordered = [];
+
+  // 1️⃣ Always include Basic Mode BEST first
+  const best = basicModeResult.recommended.best;
+  const bestKey = `${best.config}__${best.boom_m}`;
+  ordered.push(best);
+  seen[bestKey] = true;
+
+  // 2️⃣ Include ≈80% alternative second (if exists)
+  if (basicModeResult.recommended.target80) {
+    const t = basicModeResult.recommended.target80;
+    const tKey = `${t.config}__${t.boom_m}`;
+    if (!seen[tKey]) {
+      ordered.push(t);
+      seen[tKey] = true;
+    }
+  }
+
+  // 3️⃣ Add remaining feasible configs (worst-case, sorted)
+  const rest = getWorstCaseConfigs(
+    basicModeResult.feasibleConfigurations
+  ).sort((a, b) => a.utilisation_percent - b.utilisation_percent);
+
+  rest.forEach(c => {
+    const key = `${c.config}__${c.boom_m}`;
+    if (!seen[key]) {
+      ordered.push(c);
+    }
+  });
+
+  return ordered;
+}
+
 
 /* ================================
    AP MODE GATE – STEP 2
@@ -458,9 +509,9 @@ enterApModeBtn.addEventListener("click", () => {
   document.getElementById("apMode").style.display = "block";
 
   // Render configuration cards
-  renderApConfigurations(
-  getWorstCaseConfigs(window.basicModeResult.feasibleConfigurations)
-);
+const apList = buildApConfigurationList(window.basicModeResult);
+renderApConfigurations(apList);
+
 
 
   console.log("AP Mode entered with:", window.basicModeResult);
