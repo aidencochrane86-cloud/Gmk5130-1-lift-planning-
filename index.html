@@ -165,7 +165,7 @@ function computeCandidates({
 
   return charts
     .map(r => {
-      if (r.radius < radius) return null;
+      if (Math.abs(r.radius - radius) > 0.01) return null;
       if (r.capacity < totalLoad) return null;
 
       const tipHeight = Math.sqrt(
