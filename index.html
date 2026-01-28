@@ -48,7 +48,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <label>Load (t)</label>
 <input id="load" type="number">
 
-<label>Block &amp; rigging (t)</label>
+<label>Block & rigging (t)</label>
 <input id="rigging" type="number" placeholder="optional">
 
 <label>Working Radius (m)</label>
@@ -84,9 +84,8 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 const SVG_SCALE = 6;
 const groundY = 340;
 const PIVOT_HEIGHT_M = 2;
-
 const pivotX = 130;
-const pivotY = groundY - (PIVOT_HEIGHT_M * SVG_SCALE);
+const pivotY = groundY - PIVOT_HEIGHT_M * SVG_SCALE;
 
 const pivot = document.getElementById("pivot");
 const boomLine = document.getElementById("boom");
@@ -95,7 +94,6 @@ const tipHeightLine = document.getElementById("tipHeightLine");
 const obstructionRect = document.getElementById("obstruction");
 const clearanceLine = document.getElementById("clearanceLine");
 
-const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
 const riggingInput = document.getElementById("rigging");
 const radiusInput = document.getElementById("radius");
@@ -104,42 +102,13 @@ const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
 
-let DATA = [];
-
-function loadData(key) {
-  fetch(`loadchart_${key}.json`)
-    .then(r => r.json())
-    .then(d => { DATA = d.charts; calculate(); });
-}
-
-function calculate() {
-  const load = +loadInput.value;
-  const rigging = +riggingInput.value || 0;
-  const radius = +radiusInput.value;
-  const obsR = +obsRadiusInput.value;
-  const obsH = +obsHeightInput.value;
-  const margin = +marginInput.value || 0;
-
-  if (!load || !radius) return;
-
-  const totalLoad = load + rigging;
-
-  const candidates = DATA.filter(r =>
-    r.radius >= radius && r.capacity >= totalLoad
-  ).map(r => {
-    const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
-    return { ...r, tipHeight };
-  });
-
-  if (!candidates.length) {
-    result.innerHTML = `<p class="fail">Lift not possible</p>`;
-    return;
-  }
-
-  const best = candidates.sort((a,b)=>a.capacity-b.capacity)[0];
+function renderLift(best, radius, obsR, obsH, margin, totalLoad) {
 
   const boomX = pivotX + radius * SVG_SCALE;
-  const boomY = pivotY - best.tipHeight * SVG_SCALE;
+
+  // 🔑 VISUAL CLAMP (math untouched)
+  const rawBoomY = pivotY - best.tipHeight * SVG_SCALE;
+  const boomY = Math.max(rawBoomY, 10);
 
   pivot.setAttribute("cy", pivotY);
   boomLine.setAttribute("x1", pivotX);
@@ -147,34 +116,30 @@ function calculate() {
   boomLine.setAttribute("x2", boomX);
   boomLine.setAttribute("y2", boomY);
 
-  const MIN_OBSTRUCTION_RADIUS = 4;
+  radiusLine.setAttribute("x1", pivotX);
+  radiusLine.setAttribute("y1", pivotY);
+  radiusLine.setAttribute("x2", boomX);
+  radiusLine.setAttribute("y2", pivotY);
 
-  if (obsR && obsH && obsR >= MIN_OBSTRUCTION_RADIUS && obsR < radius) {
+  tipHeightLine.setAttribute("x1", boomX);
+  tipHeightLine.setAttribute("y1", boomY);
+  tipHeightLine.setAttribute("x2", boomX);
+  tipHeightLine.setAttribute("y2", pivotY);
+
+  if (obsR && obsH && obsR < radius) {
     const obsX = pivotX + obsR * SVG_SCALE;
-    const requestedObsTopY = groundY - obsH * SVG_SCALE;
-    const obsTopY = Math.max(requestedObsTopY, pivotY);
-    const obsRenderHeight = groundY - obsTopY;
-
-    obstructionRect.style.visibility = "visible";
-    clearanceLine.style.visibility = "visible";
+    const obsTopY = Math.max(groundY - obsH * SVG_SCALE, pivotY);
+    obstructionRect.style.visibility = clearanceLine.style.visibility = "visible";
 
     obstructionRect.setAttribute("x", obsX - 15);
     obstructionRect.setAttribute("y", obsTopY);
-    obstructionRect.setAttribute("height", obsRenderHeight);
+    obstructionRect.setAttribute("height", groundY - obsTopY);
 
-    const boomHeightAtObs =
-      (best.tipHeight - PIVOT_HEIGHT_M) * (obsR / radius);
-
+    const boomHeightAtObs = best.tipHeight * (obsR / radius);
     clearanceLine.setAttribute("x1", obsX - 15);
     clearanceLine.setAttribute("x2", obsX - 15);
     clearanceLine.setAttribute("y1", obsTopY);
-    clearanceLine.setAttribute(
-      "y2",
-      pivotY - boomHeightAtObs * SVG_SCALE
-    );
-  } else {
-    obstructionRect.style.visibility = "hidden";
-    clearanceLine.style.visibility = "hidden";
+    clearanceLine.setAttribute("y2", pivotY - boomHeightAtObs * SVG_SCALE);
   }
 
   result.innerHTML = `
@@ -184,12 +149,6 @@ function calculate() {
     <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
   `;
 }
-
-[loadInput, riggingInput, radiusInput, obsRadiusInput, obsHeightInput, marginInput]
-  .forEach(e => e.addEventListener("input", calculate));
-
-ballast.addEventListener("change", () => loadData(ballast.value));
-loadData(ballast.value);
 </script>
 
 </body>
