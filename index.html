@@ -33,14 +33,7 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
   <span class="badge basic">Mode: Basic Mode</span>
 </div>
 
-<div id="basicModeWarning"
-     class="card"
-     style="
-       display:none;
-       border-left:4px solid #b42318;
-       background:#fff5f5;
-     ">
-</div>
+<div id="basicModeWarning" class="card" style="display:none;"></div>
 
 <div class="card">
 <h2>Inputs</h2>
@@ -74,147 +67,20 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 <div class="card">
 <h2>Result</h2>
 
-<div style="margin-bottom:16px;">
-<svg viewBox="0 0 800 400" width="100%" height="260"
-     xmlns="http://www.w3.org/2000/svg">
-
+<svg viewBox="0 0 800 400" width="100%" height="260">
   <line x1="0" y1="340" x2="800" y2="340" stroke="#333" stroke-width="3"/>
-
   <circle id="pivot" cx="130" cy="0" r="6" fill="#000"/>
-
   <line id="boom" stroke="#FFD200" stroke-width="8" stroke-linecap="round"/>
   <line id="radiusLine" stroke="#888" stroke-dasharray="6 4" stroke-width="2"/>
   <line id="tipHeightLine" stroke="#888" stroke-dasharray="6 4" stroke-width="2"/>
-
-  <rect id="obstruction" width="30" fill="#ccc" opacity="0.9"/>
-
-  <line id="clearanceLine"
-        stroke="#e74c3c"
-        stroke-dasharray="4 4"
-        stroke-width="3"/>
+  <rect id="obstruction" width="30" fill="#ccc"/>
+  <line id="clearanceLine" stroke="#e74c3c" stroke-dasharray="4 4" stroke-width="3"/>
 </svg>
-</div>
 
 <div id="result">Select inputs.</div>
 </div>
 
-<!-- STEP 2 START -->
-<div class="card" id="step2Card">
-  <h2>Step 2 – Outrigger Reactions (Indicative)</h2>
-
-  <p style="color:#b45309;font-size:0.9em;">
-    Indicative reactions only. Manufacturer outrigger load charts are required
-    for verified AP calculations and ground bearing checks.
-  </p>
-
-  <label>Slew angle (°)</label>
-  <input id="slewInput" type="number" value="360">
-
-  <div id="reactionOutput" style="margin-top:12px;">
-    Enter Step 1 inputs to calculate reactions.
-  </div>
-</div>
-
-<!-- STEP 2 END -->
 <script>
-
-// ==========================
-// BASIC MODE v1.0 (LOCKED)
-// ==========================
-
-// ==========================
-// STEP 1 – BASIC MODE CLASSIFICATION (LOCKED)
-// Applies ONLY to cranes rated 50–130 t
-// ==========================
-
-// Basic Mode classification limits
-const BASIC_MODE_CLASS = {
-  MIN: 50,
-  MAX: 130
-};
-
-// Crane registry (extend later or replace with JSON)
-const CRANES = {
-  "GMK5130-1": {
-    model: "GMK5130-1",
-    ratedCapacity: 130
-  }
-  // Add more cranes here later
-};
-
-// Returns Basic Mode state for selected crane
-function getBasicModeState(crane) {
-  const capacity = crane.ratedCapacity;
-
-  if (capacity < BASIC_MODE_CLASS.MIN) {
-    return {
-      allowed: false,
-      reason: "BELOW_CLASS",
-      message:
-        "Crane is outside the 50–130 t Basic Mode classification. " +
-        "Indicative outrigger loading is not shown."
-    };
-  }
-
-  if (capacity > BASIC_MODE_CLASS.MAX) {
-    return {
-      allowed: false,
-      reason: "ABOVE_CLASS",
-      message:
-        "Crane exceeds Basic Mode classification. " +
-        "AP Mode is required for ground loading assessment."
-    };
-  }
-
-  return {
-    allowed: true,
-    reason: "WITHIN_CLASS",
-    message:
-      "Indicative outrigger loading based on conservative assumptions " +
-      "for the 50–130 t crane class."
-  };
-}
-
-// ==========================
-// BASIC MODE – UI WIRING
-// ==========================
-
-// Selected crane (for now hard-coded)
-const SELECTED_CRANE = CRANES["GMK5130-1"];
-
-// Get Basic Mode state
-const basicModeState = getBasicModeState(SELECTED_CRANE);
-
-// UI elements
-const warningBox = document.getElementById("basicModeWarning");
-const step2Card = document.getElementById("step2Card"); // Step 2 card (safe)
-
-// Apply UI rules
-if (!warningBox) {
-  console.warn("basicModeWarning element missing");
-} else {
-  if (!basicModeState.allowed) {
-    warningBox.style.display = "block";
-    warningBox.innerHTML = `
-      <h3 style="margin-top:0;">⚠ Basic Mode Limitation</h3>
-      <p>${basicModeState.message}</p>
-    `;
-
-    if (step2Card) {
-      step2Card.style.opacity = "0.4";
-      step2Card.style.pointerEvents = "none";
-    }
-  } else {
-    warningBox.style.display = "block";
-    warningBox.style.borderLeftColor = "#1a7f37";
-    warningBox.style.background = "#f0fff4";
-    warningBox.innerHTML = `
-      <h3 style="margin-top:0;">ℹ Basic Mode Assumption</h3>
-      <p>${basicModeState.message}</p>
-    `;
-  }
-}
-
 const SVG_SCALE = 6;
 const groundY = 340;
 const PIVOT_HEIGHT_M = 2;
@@ -229,8 +95,6 @@ const tipHeightLine = document.getElementById("tipHeightLine");
 const obstructionRect = document.getElementById("obstruction");
 const clearanceLine = document.getElementById("clearanceLine");
 
-let DATA = [], META = {};
-
 const ballast = document.getElementById("ballast");
 const loadInput = document.getElementById("load");
 const riggingInput = document.getElementById("rigging");
@@ -239,61 +103,40 @@ const obsRadiusInput = document.getElementById("obsRadius");
 const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
-const metaBallast = document.getElementById("metaBallast");
 
-function utilClass(u) {
-  if (u >= 90) return "util-red";
-  if (u > 85) return "util-amber";
-  return "util-green";
-}
+let DATA = [];
 
 function loadData(key) {
   fetch(`loadchart_${key}.json`)
     .then(r => r.json())
-    .then(d => {
-      DATA = d.charts;
-      META = d.meta || {};
-      metaBallast.innerHTML =
-        `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}<br>` +
-        `<strong>Outriggers:</strong> ${META.outriggers || "—"}<br>` +
-        `<strong>SLI:</strong> ${META.sli || "—"}`;
-      calculate();
-    });
+    .then(d => { DATA = d.charts; calculate(); });
 }
 
-function computeCandidates({ charts, load, rigging, radius, obsR, obsH, margin }) {
+function calculate() {
+  const load = +loadInput.value;
+  const rigging = +riggingInput.value || 0;
+  const radius = +radiusInput.value;
+  const obsR = +obsRadiusInput.value;
+  const obsH = +obsHeightInput.value;
+  const margin = +marginInput.value || 0;
+
+  if (!load || !radius) return;
+
   const totalLoad = load + rigging;
-  const obstructionActive = obsR && obsH && obsR < radius;
 
-  return charts.map(r => {
-    if (r.radius < radius) return null;
-    if (r.capacity < totalLoad) return null;
+  const candidates = DATA.filter(r =>
+    r.radius >= radius && r.capacity >= totalLoad
+  ).map(r => {
+    const tipHeight = Math.sqrt(Math.max(0, r.boom*r.boom - radius*radius));
+    return { ...r, tipHeight };
+  });
 
-    const tipHeight = Math.sqrt(
-      Math.max(0, r.boom * r.boom - radius * radius)
-    );
+  if (!candidates.length) {
+    result.innerHTML = `<p class="fail">Lift not possible</p>`;
+    return;
+  }
 
-    if (obstructionActive) {
-      const boomHeightAtObs = tipHeight * (obsR / radius);
-      const clearance = boomHeightAtObs - obsH;
-      if (clearance < margin) return null;
-    }
-
-    return {
-      boom: r.boom,
-      capacity: r.capacity,
-      config: r.config,
-      util: (totalLoad / r.capacity) * 100,
-      tipHeight
-    };
-  }).filter(Boolean);
-}
-
-function selectBestCandidate(candidates) {
-  return [...candidates].sort((a, b) => a.util - b.util)[0];
-}
-
-function renderLift(best, { radius, obsR, obsH, margin, totalLoad }) {
+  const best = candidates.sort((a,b)=>a.capacity-b.capacity)[0];
 
   const boomX = pivotX + radius * SVG_SCALE;
   const boomY = pivotY - best.tipHeight * SVG_SCALE;
@@ -304,46 +147,23 @@ function renderLift(best, { radius, obsR, obsH, margin, totalLoad }) {
   boomLine.setAttribute("x2", boomX);
   boomLine.setAttribute("y2", boomY);
 
-  radiusLine.setAttribute("x1", pivotX);
-  radiusLine.setAttribute("y1", pivotY);
-  radiusLine.setAttribute("x2", boomX);
-  radiusLine.setAttribute("y2", pivotY);
+  const MIN_OBSTRUCTION_RADIUS = 4;
 
-  tipHeightLine.setAttribute("x1", boomX);
-  tipHeightLine.setAttribute("y1", boomY);
-  tipHeightLine.setAttribute("x2", boomX);
-  tipHeightLine.setAttribute("y2", pivotY);
-
-  // Ignore obstructions inside crane footprint (Basic Mode)
-const MIN_OBSTRUCTION_RADIUS = 4; // metres – conservative footprint
-
-const obstructionActive =
-  obsR &&
-  obsH &&
-  obsR >= MIN_OBSTRUCTION_RADIUS &&
-  obsR < radius;
-
-  if (obstructionActive) {
+  if (obsR && obsH && obsR >= MIN_OBSTRUCTION_RADIUS && obsR < radius) {
     const obsX = pivotX + obsR * SVG_SCALE;
-    // Prevent obstruction overlapping boom root (pivot height)
+    const requestedObsTopY = groundY - obsH * SVG_SCALE;
+    const obsTopY = Math.max(requestedObsTopY, pivotY);
+    const obsRenderHeight = groundY - obsTopY;
 
-// Calculate obstruction top, clamped to boom root height
-const requestedObsTopY = groundY - obsH * SVG_SCALE;
-const maxObsTopY = pivotY;
-
-// Obstruction top can never go above boom root
-const obsTopY = Math.max(requestedObsTopY, maxObsTopY);
-
-// Height always measured from ground up
-const obsRenderHeight = groundY - obsTopY;
-    obstructionRect.style.visibility =
-      clearanceLine.style.visibility = "visible";
+    obstructionRect.style.visibility = "visible";
+    clearanceLine.style.visibility = "visible";
 
     obstructionRect.setAttribute("x", obsX - 15);
     obstructionRect.setAttribute("y", obsTopY);
-    obstructionRect.setAttribute("height", obsH * SVG_SCALE);
+    obstructionRect.setAttribute("height", obsRenderHeight);
 
-    const boomHeightAtObs = best.tipHeight * (obsR / radius);
+    const boomHeightAtObs =
+      (best.tipHeight - PIVOT_HEIGHT_M) * (obsR / radius);
 
     clearanceLine.setAttribute("x1", obsX - 15);
     clearanceLine.setAttribute("x2", obsX - 15);
@@ -353,80 +173,23 @@ const obsRenderHeight = groundY - obsTopY;
       pivotY - boomHeightAtObs * SVG_SCALE
     );
   } else {
-    obstructionRect.style.visibility =
-      clearanceLine.style.visibility = "hidden";
+    obstructionRect.style.visibility = "hidden";
+    clearanceLine.style.visibility = "hidden";
   }
 
   result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
-    <p><b>Configuration:</b> ${best.config}</p>
     <p><b>Boom length:</b> ${best.boom} m</p>
     <p><b>Working radius:</b> ${radius.toFixed(2)} m</p>
-    <p><b>Utilisation:</b>
-      <span class="${utilClass(best.util)}">
-        ${best.util.toFixed(1)}%
-      </span>
-    </p>
     <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
   `;
 }
 
-function calculate() {
-  const load = +loadInput.value;
-  const rigging = riggingInput.value ? +riggingInput.value : 0;
-  const totalLoad = load + rigging;
-  const radius = +radiusInput.value;
-
-  if (!load || !radius) return;
-
-  pivot.style.visibility =
-    boomLine.style.visibility =
-    radiusLine.style.visibility =
-    tipHeightLine.style.visibility = "visible";
-
-  const obsR = +obsRadiusInput.value;
-  const obsH = +obsHeightInput.value;
-  const margin = +marginInput.value || 0;
-
-  const candidates = computeCandidates({
-    charts: DATA,
-    load,
-    rigging,
-    radius,
-    obsR,
-    obsH,
-    margin
-  });
-
-  if (!candidates.length) {
-    result.innerHTML = `<p class="fail">Lift not possible</p>`;
-    obstructionRect.style.visibility =
-      clearanceLine.style.visibility = "hidden";
-    return;
-  }
-
-  const best = selectBestCandidate(candidates);
-
-  renderLift(best, {
-    radius,
-    obsR,
-    obsH,
-    margin,
-    totalLoad
-  });
-}
-
-[loadInput, riggingInput, radiusInput,
- obsRadiusInput, obsHeightInput, marginInput]
-.forEach(e => e.addEventListener("input", calculate));
+[loadInput, riggingInput, radiusInput, obsRadiusInput, obsHeightInput, marginInput]
+  .forEach(e => e.addEventListener("input", calculate));
 
 ballast.addEventListener("change", () => loadData(ballast.value));
 loadData(ballast.value);
-
-document
-  .getElementById("slewInput")
-  .addEventListener("input", calculate);
-
 </script>
 
 </body>
