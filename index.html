@@ -219,6 +219,8 @@ function computeCandidates({
   const totalLoad = load + rigging;
   const obstructionActive = obsR && obsH;
 
+// Chart radii >14 m are tabulated in 2 m increments.
+// Use ±1 m tolerance to select nearest valid chart radius (no interpolation).
   return charts
     .map(r => {
       if (Math.abs(r.radius - radius) > 1) return null;
