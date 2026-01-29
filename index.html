@@ -130,6 +130,8 @@ const obsHeightInput = document.getElementById("obsHeight");
 const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
+const AP_UTILISATION_LIMIT = 90;
+
 
 function utilClass(u) {
   if (u >= 90) return "util-red";
@@ -415,28 +417,47 @@ function renderApConfigurations(configs) {
     card.style.cursor = "pointer";
     card.style.border = "2px solid #ddd";
     card.style.marginBottom = "12px";
+    
+ const isOverLimit = c.utilisation_percent > AP_UTILISATION_LIMIT;
 
-    card.innerHTML = `
-      <p><b>Configuration:</b> ${c.config}</p>
-      <p><b>Boom:</b> ${c.boom_m} m</p>
-      <p><b>Rated capacity:</b> ${c.ratedCapacity_t} t</p>
-      <p><b>Utilisation:</b>
-        <span class="${utilClass(c.utilisation_percent)}">
-          ${c.utilisation_percent.toFixed(1)}%
-        </span>
-      </p>
-    `;
+card.innerHTML = `
+  <p><b>Configuration:</b> ${c.config}</p>
+  <p><b>Boom:</b> ${c.boom_m} m</p>
+  <p><b>Rated capacity:</b> ${c.ratedCapacity_t} t</p>
+  <p><b>Utilisation:</b>
+    <span class="${utilClass(c.utilisation_percent)}">
+      ${c.utilisation_percent.toFixed(1)}%
+    </span>
+  </p>
 
-    card.addEventListener("click", () => {
-      document
-        .querySelectorAll("#apConfigList .card")
-        .forEach(el => el.style.border = "2px solid #ddd");
+  ${
+    isOverLimit
+      ? `<p class="fail">⚠ Exceeds AP utilisation limit (${AP_UTILISATION_LIMIT}%)</p>`
+      : ``
+  }
+`;
 
-      card.style.border = "2px solid #0066cc";
+    
 
-      window.selectedApConfiguration = c;
-      console.log("AP configuration selected:", c);
-    });
+if (isOverLimit) {
+  card.style.opacity = "0.45";
+  card.style.cursor = "not-allowed";
+}
+
+
+card.addEventListener("click", () => {
+  if (isOverLimit) return; // 🚫 STEP 3: hard block selection
+
+  document
+    .querySelectorAll("#apConfigList .card")
+    .forEach(el => el.style.border = "2px solid #ddd");
+
+  card.style.border = "2px solid #0066cc";
+
+  window.selectedApConfiguration = c;
+  console.log("AP configuration selected:", c);
+});
+
 
     container.appendChild(card);
   });
