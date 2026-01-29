@@ -140,6 +140,49 @@ const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
 const AP_UTILISATION_LIMIT = 90;
+const confirmApBtn = document.getElementById("confirmApConfig");
+const apResult = document.getElementById("apResult");
+
+confirmApBtn.addEventListener("click", () => {
+  if (!window.selectedApConfiguration) return;
+
+  // 🔒 Freeze AP configuration
+  const confirmedApConfig = {
+    ...window.selectedApConfiguration,
+    confirmedAt: new Date().toISOString()
+  };
+
+  window.confirmedApConfiguration = confirmedApConfig;
+  Object.freeze(window.confirmedApConfiguration);
+
+  // 🔐 Lock AP UI
+  document
+    .querySelectorAll("#apConfigList .card")
+    .forEach(card => {
+      card.style.pointerEvents = "none";
+      card.style.opacity = "0.6";
+    });
+
+  confirmApBtn.disabled = true;
+  confirmApBtn.textContent = "AP Configuration Confirmed";
+
+  // 📋 Show AP confirmation result
+  apResult.innerHTML = `
+    <div class="alt">
+      <p><b>AP Configuration Confirmed</b></p>
+      <p><b>Configuration:</b> ${confirmedApConfig.config}</p>
+      <p><b>Boom:</b> ${confirmedApConfig.boom_m} m</p>
+      <p><b>Rated capacity:</b> ${confirmedApConfig.ratedCapacity_t} t</p>
+      <p><b>Utilisation:</b>
+        <span class="${utilClass(confirmedApConfig.utilisation_percent)}">
+          ${confirmedApConfig.utilisation_percent.toFixed(1)}%
+        </span>
+      </p>
+    </div>
+  `;
+
+  console.log("AP configuration CONFIRMED:", confirmedApConfig);
+});
 
 
 function utilClass(u) {
@@ -464,10 +507,10 @@ card.addEventListener("click", () => {
   card.style.border = "2px solid #0066cc";
 
   window.selectedApConfiguration = c;
+  confirmApBtn.disabled = false;
   console.log("AP configuration selected:", c);
   
    // ✅ STEP 4 enablement
-  document.getElementById("confirmApConfig").disabled = false;
 
   console.log("AP configuration selected:", c);
 });
@@ -530,7 +573,7 @@ function buildApConfigurationList(basicModeResult) {
 
 
 /* ================================
-   AP MODE GATE – STEP 2
+   AP MODE GATE – ENTER AP MODE
    ================================ */
 const enterApModeBtn = document.getElementById("enterApMode");
 
