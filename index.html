@@ -156,20 +156,9 @@ confirmApBtn.addEventListener("click", () => {
 
   window.confirmedApConfiguration = confirmedApConfig;
   Object.freeze(window.confirmedApConfiguration);
-
-  // 🔐 Lock AP UI
-  document
-    .querySelectorAll("#apConfigList .card")
-    .forEach(card => {
-      card.style.pointerEvents = "none";
-      card.style.opacity = "0.6";
-    });
-
-  confirmApBtn.disabled = true;
-  confirmApBtn.textContent = "AP Configuration Confirmed";
-
-  // 📋 Show AP confirmation result
-  apResult.innerHTML = `
+  
+    // 📋 Show AP confirmation result
+  apResult.innerHTML += `
     <div class="alt">
       <p><b>AP Configuration Confirmed</b></p>
       <p><b>Configuration:</b> ${confirmedApConfig.config}</p>
@@ -182,6 +171,35 @@ confirmApBtn.addEventListener("click", () => {
       </p>
     </div>
   `;
+  
+  /* ================================
+   STEP 5.2 – Ground Bearing Pressure
+   Conservative UK / IE Assumptions
+   ================================ */
+   const step52 = runStep52_GroundBearing();
+   
+   if (step52) {
+  apResult.innerHTML += `
+    <div class="alt">
+      <p><b>Ground Bearing (Conservative)</b></p>
+      <p><b>Worst outrigger load:</b> ${step52.results.worstOutriggerLoad_kN} kN</p>
+      <p><b>Ground bearing:</b> ${step52.results.groundBearing_t_m2} t/m²</p>
+    </div>
+  `;
+}
+
+
+  // 🔐 Lock AP UI
+  document
+    .querySelectorAll("#apConfigList .card")
+    .forEach(card => {
+      card.style.pointerEvents = "none";
+      card.style.opacity = "0.6";
+    });
+
+  confirmApBtn.disabled = true;
+  confirmApBtn.textContent = "AP Configuration Confirmed";
+
 
   console.log("AP configuration CONFIRMED:", confirmedApConfig);
 });
@@ -573,6 +591,48 @@ function buildApConfigurationList(basicModeResult) {
   });
 
   return ordered;
+}
+
+function runStep52_GroundBearing() {
+  if (!window.confirmedApConfiguration || !window.basicModeResult) {
+    console.warn("Step 5.2 skipped: AP configuration not confirmed.");
+    return;
+  }
+
+  // 🔒 Locked conservative assumptions
+  const SUPERSTRUCTURE_BIAS = 0.55;
+  const DEFAULT_PAD_AREA_M2 = 1.0;
+
+  const totalLoad_t = window.basicModeResult.totalLoad_t;
+  const totalLoad_kN = totalLoad_t * 9.81;
+
+  const worstOutriggerLoad_kN =
+    totalLoad_kN * SUPERSTRUCTURE_BIAS;
+
+  const gbp_kN_per_m2 =
+    worstOutriggerLoad_kN / DEFAULT_PAD_AREA_M2;
+
+  const gbp_t_per_m2 =
+    gbp_kN_per_m2 / 9.81;
+
+  const step52Result = {
+    method: "Conservative static vertical",
+    assumptions: {
+      superstructureBias: SUPERSTRUCTURE_BIAS,
+      padArea_m2: DEFAULT_PAD_AREA_M2
+    },
+    inputs: { totalLoad_t },
+    results: {
+      worstOutriggerLoad_kN: +worstOutriggerLoad_kN.toFixed(1),
+      groundBearing_kN_m2: +gbp_kN_per_m2.toFixed(1),
+      groundBearing_t_m2: +gbp_t_per_m2.toFixed(2)
+    }
+  };
+
+  window.step52GroundBearing = step52Result;
+  Object.freeze(window.step52GroundBearing);
+
+  return step52Result;
 }
 
 
