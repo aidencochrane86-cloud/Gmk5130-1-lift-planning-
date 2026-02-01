@@ -247,8 +247,22 @@ function utilClass(u) {
   return "util-green";
 }
 
-function loadData(key) {
-  fetch(`loadchart_${key}.json`)
+function loadData(ballastKey) {
+  const craneId = "GMK5130-1";
+
+  const chartFile =
+    ballastKey === "23_5t"
+      ? `${craneId}_loadchart_23.5t.json`
+      : ballastKey === "40_1t"
+      ? `${craneId}_loadchart_40.1t.json`
+      : null;
+
+  if (!chartFile) {
+    console.warn("No load chart for this ballast");
+    return;
+  }
+
+  fetch(`cranes/${chartFile}`)
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
