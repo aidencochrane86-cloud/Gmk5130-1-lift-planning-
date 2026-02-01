@@ -250,28 +250,35 @@ function utilClass(u) {
 function loadData(ballastKey) {
   const craneId = "GMK5130-1";
 
-  const chartFile =
-    ballastKey === "23_5t"
-      ? `${craneId}_loadchart_23.5t.json`
-      : ballastKey === "40_1t"
-      ? `${craneId}_loadchart_40.1t.json`
-      : null;
+  const chartMap = {
+    "23_5t": "loadchart_23.5t.json",
+    "40_1t": "loadchart_40.1t.json"
+  };
+
+  const chartFile = chartMap[ballastKey];
 
   if (!chartFile) {
     console.warn("No load chart for this ballast");
+    DATA = [];
+    META = {};
     return;
   }
 
-  fetch(`cranes/${chartFile}`)
+  fetch(`cranes/${craneId}/${chartFile}`)
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
       META = d.meta || {};
+
       metaBallast.innerHTML =
         `<strong>Ballast:</strong> ${ballast.selectedOptions[0].text}<br>` +
         `<strong>Outriggers:</strong> ${META.outriggers || "—"}<br>` +
         `<strong>SLI:</strong> ${META.sli || "—"}`;
+
       calculate();
+    })
+    .catch(err => {
+      console.error("Failed to load load chart:", err);
     });
 }
 
