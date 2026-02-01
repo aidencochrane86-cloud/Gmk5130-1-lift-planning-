@@ -212,7 +212,7 @@ if (step53) {
   apResult.innerHTML += `
     <div class="alt">
       <p><b>Estimated Total Ground Bearing</b></p>
-      <p><b>Includes:</b> Crane self weight + ballast + lifted load</p>
+      <p><b>Includes:</b> Static carrier + dynamic ballast + lifted load</p>
       <p><b>Worst outrigger load:</b> ${step53.results.worstOutriggerLoad_kN} kN</p>
       <p><b>Ground bearing:</b> ${step53.results.groundBearing_t_m2} t/m²</p>
       <p style="font-size:0.9em;color:#555;margin-top:8px;">
@@ -680,32 +680,61 @@ function runStep53_EstimatedTotalGroundBearing({
     return null;
   }
 
-  // 🔒 Locked conservative assumptions
-  const SUPERSTRUCTURE_BIAS = 0.55;
-
   // Inputs
   const liftLoad_t = window.basicModeResult.totalLoad_t;
 
-  const totalWeight_t =
-    craneSelfWeight_t +
-    ballastWeight_t +
-    liftLoad_t;
+  // Static carrier mass is fixed for this crane (includes deck + permanent ballast)
+const STATIC_CARRIER_T = craneSelfWeight_t;
+
+// Total system mass (reporting only – NOT all static)
+const totalWeight_t =
+  STATIC_CARRIER_T +
+  liftLoad_t;
+
 
   const totalWeight_kN = totalWeight_t * 9.81;
 
-  const worstOutriggerLoad_kN =
-    totalWeight_kN * SUPERSTRUCTURE_BIAS;
+  // --- Utilisation-aware envelope ---
+const util = window.confirmedApConfiguration.utilisation_percent;
+
+// Static carrier share (dominant at low utilisation)
+const STATIC_SHARE = 0.38; // conservative for AT cranes on full outriggers
+
+// Dynamic overturning amplification
+const dynamicBias =
+  util < 60 ? 0.15 :
+  util < 80 ? 0.30 :
+              0.55;
+
+// Split the loads
+const staticComponent_kN =
+  totalWeight_kN * STATIC_SHARE;
+
+const effectiveDynamicMass_t =
+  liftLoad_t + ballastWeight_t;
+
+const dynamicComponent_kN =
+  effectiveDynamicMass_t * 9.81 * dynamicBias;
+
+// Governing reaction
+const worstOutriggerLoad_kN =
+  staticComponent_kN + dynamicComponent_kN;
+
 
   const gbp_t_m2 =
     (worstOutriggerLoad_kN / 9.81) / PAD_AREA_M2;
+    
+    
 
   const result = {
     method: "Estimated total (conservative planning)",
-    assumptions: {
-      superstructureBias: SUPERSTRUCTURE_BIAS,
-      padArea_m2: PAD_AREA_M2,
-      includes: ["crane self weight", "ballast", "lifted load"]
-    },
+   assumptions: {
+  model: "utilisation-aware load envelope",
+  staticShare: STATIC_SHARE,
+  padArea_m2: PAD_AREA_M2,
+  includes: ["crane self weight", "ballast", "lifted load"]
+},
+
     inputs: {
       craneSelfWeight_t,
       ballastWeight_t,
