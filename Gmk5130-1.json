@@ -1,0 +1,74 @@
+{
+  "craneModel": "GMK5130-1",
+  "manufacturer": "Grove",
+  "type": "All-Terrain",
+
+  "baseMass": {
+    "description": "Mass present at all times, regardless of lift state",
+    "carrierBare_t": 41.5,
+    "fixedSuperstructureBallast_t": 6.0,
+    "deckBallast_t": 17.5,
+    "totalBaseMass_t": 65.0
+  },
+
+  "ballastPackages": {
+    "6t": {
+      "label": "6.0 t (fixed only)",
+      "installedBallast_t": 6.0,
+      "additionalBallastAdded_t": 0.0,
+      "addsToCraneMass_t": 0.0,
+      "notes": "Only fixed superstructure ballast. Deck ballast not installed."
+    },
+
+    "23.5t": {
+      "label": "23.5 t (6.0 + 17.5)",
+      "installedBallast_t": 23.5,
+      "additionalBallastAdded_t": 0.0,
+      "addsToCraneMass_t": 0.0,
+      "notes": "Deck ballast transferred to superstructure. Total crane mass remains 65 t."
+    },
+
+    "40.1t": {
+      "label": "40.1 t (6.0 + 17.5 + 16.6)",
+      "installedBallast_t": 40.1,
+      "additionalBallastAdded_t": 16.6,
+      "addsToCraneMass_t": 16.6,
+      "notes": "Additional ballast added. Crane mass increases beyond base mass."
+    }
+  },
+
+  "massLogic": {
+    "preLift": {
+      "description": "Before load is lifted",
+      "dynamicBallastActive": false,
+      "dynamicMassIncludes": ["liftedLoad"]
+    },
+    "underLoad": {
+      "description": "During lifting / slewing",
+      "dynamicBallastActive": true,
+      "dynamicMassIncludes": ["liftedLoad", "installedBallast"]
+    }
+  },
+
+  "outriggers": {
+    "configuration": "Full",
+    "staticShareDefault": 0.38,
+    "notes": "Conservative static carrier load share for AT cranes on full outriggers"
+  },
+
+  "pads": {
+    "defaultDiameter_m": 1.2,
+    "defaultArea_m2": 1.13
+  },
+
+  "loadCharts": {
+    "6t": "loadchart_GMK5130-1_6t.json",
+    "23.5t": "loadchart_GMK5130-1_23.5t.json",
+    "40.1t": "loadchart_GMK5130-1_40.1t.json"
+  },
+
+  "disclaimers": [
+    "Ground bearing values are conservative planning estimates.",
+    "Final loads must be confirmed by the Appointed Person / Temporary Works Engineer."
+  ]
+}
