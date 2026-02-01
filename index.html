@@ -193,6 +193,33 @@ Final pressures must be confirmed by the Appointed Person / Temporary Works Engi
   `;
 }
 
+/* ================================
+   STEP 5.3 – Estimated Total Ground Bearing
+   ================================ */
+const step53 = runStep53_EstimatedTotalGroundBearing({
+  craneSelfWeight_t: 65, // temporary fixed value
+  ballastWeight_t:
+    ballast.value === "40_1t" ? 40.1 :
+    ballast.value === "23_5t" ? 23.5 :
+    ballast.value === "6t"    ? 6 : 0
+});
+
+if (step53) {
+  apResult.innerHTML += `
+    <div class="alt">
+      <p><b>Estimated Total Ground Bearing</b></p>
+      <p><b>Includes:</b> Crane self weight + ballast + lifted load</p>
+      <p><b>Worst outrigger load:</b> ${step53.results.worstOutriggerLoad_kN} kN</p>
+      <p><b>Ground bearing:</b> ${step53.results.groundBearing_t_m2} t/m²</p>
+      <p style="font-size:0.9em;color:#555;margin-top:8px;">
+        Ground bearing values are conservative planning estimates.
+        Final pressures must be confirmed by the Appointed Person /
+        Temporary Works Engineer.
+      </p>
+    </div>
+  `;
+}
+
 
   // 🔐 Lock AP UI
   document
@@ -640,6 +667,59 @@ function runStep52_GroundBearing() {
   return step52Result;
 }
 
+function runStep53_EstimatedTotalGroundBearing({
+  craneSelfWeight_t,
+  ballastWeight_t
+}) {
+  if (!window.confirmedApConfiguration || !window.basicModeResult) {
+    console.warn("Step 5.3 skipped: AP configuration not confirmed.");
+    return null;
+  }
+
+  // 🔒 Locked conservative assumptions
+  const SUPERSTRUCTURE_BIAS = 0.55;
+  const PAD_AREA_M2 = 1.0;
+
+  // Inputs
+  const liftLoad_t = window.basicModeResult.totalLoad_t;
+
+  const totalWeight_t =
+    craneSelfWeight_t +
+    ballastWeight_t +
+    liftLoad_t;
+
+  const totalWeight_kN = totalWeight_t * 9.81;
+
+  const worstOutriggerLoad_kN =
+    totalWeight_kN * SUPERSTRUCTURE_BIAS;
+
+  const gbp_t_m2 =
+    (worstOutriggerLoad_kN / 9.81) / PAD_AREA_M2;
+
+  const result = {
+    method: "Estimated total (conservative planning)",
+    assumptions: {
+      superstructureBias: SUPERSTRUCTURE_BIAS,
+      padArea_m2: PAD_AREA_M2,
+      includes: ["crane self weight", "ballast", "lifted load"]
+    },
+    inputs: {
+      craneSelfWeight_t,
+      ballastWeight_t,
+      liftLoad_t,
+      totalWeight_t
+    },
+    results: {
+      worstOutriggerLoad_kN: +worstOutriggerLoad_kN.toFixed(1),
+      groundBearing_t_m2: +gbp_t_m2.toFixed(2)
+    }
+  };
+
+  window.step53EstimatedGroundBearing = result;
+  Object.freeze(window.step53EstimatedGroundBearing);
+
+  return result;
+}
 
 /* ================================
    AP MODE GATE – ENTER AP MODE
