@@ -7,8 +7,7 @@
     "description": "Mass present at all times, regardless of lift state",
     "carrierBare_t": 41.5,
     "fixedSuperstructureBallast_t": 6.0,
-    "deckBallast_t": 17.5,
-    "totalBaseMass_t": 65.0
+    "deckBallast_t": 17.5
   },
 
   "ballastPackages": {
@@ -17,23 +16,23 @@
       "installedBallast_t": 6.0,
       "additionalBallastAdded_t": 0.0,
       "addsToCraneMass_t": 0.0,
-      "notes": "Only fixed superstructure ballast. Deck ballast not installed."
+      "notes": "Only fixed superstructure ballast. Deck ballast remains on carrier."
     },
 
-    "23.5t": {
+    "23_5t": {
       "label": "23.5 t (6.0 + 17.5)",
       "installedBallast_t": 23.5,
       "additionalBallastAdded_t": 0.0,
       "addsToCraneMass_t": 0.0,
-      "notes": "Deck ballast transferred to superstructure. Total crane mass remains 65 t."
+      "notes": "Deck ballast transferred to superstructure. Total crane mass remains base mass."
     },
 
-    "40.1t": {
+    "40_1t": {
       "label": "40.1 t (6.0 + 17.5 + 16.6)",
       "installedBallast_t": 40.1,
       "additionalBallastAdded_t": 16.6,
       "addsToCraneMass_t": 16.6,
-      "notes": "Additional ballast added. Crane mass increases beyond base mass."
+      "notes": "Additional ballast added beyond base mass. Crane mass increases."
     }
   },
 
@@ -41,12 +40,13 @@
     "preLift": {
       "description": "Before load is lifted",
       "dynamicBallastActive": false,
-      "dynamicMassIncludes": ["liftedLoad"]
+      "dynamicMassIncludes": ["liftLoad"]
     },
+
     "underLoad": {
       "description": "During lifting / slewing",
       "dynamicBallastActive": true,
-      "dynamicMassIncludes": ["liftedLoad", "installedBallast"]
+      "dynamicMassIncludes": ["liftLoad", "installedBallast"]
     }
   },
 
@@ -57,14 +57,13 @@
   },
 
   "pads": {
-    "defaultDiameter_m": 1.2,
-    "defaultArea_m2": 1.13
+    "defaultDiameter_m": 1.2
   },
 
   "loadCharts": {
     "6t": "loadchart_GMK5130-1_6t.json",
-    "23.5t": "loadchart_GMK5130-1_23.5t.json",
-    "40.1t": "loadchart_GMK5130-1_40.1t.json"
+    "23_5t": "loadchart_GMK5130-1_23.5t.json",
+    "40_1t": "loadchart_GMK5130-1_40.1t.json"
   },
 
   "disclaimers": [
