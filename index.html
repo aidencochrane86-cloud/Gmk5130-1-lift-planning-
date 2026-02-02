@@ -322,19 +322,20 @@ function computeCandidates({
   margin
 }) {
   const totalLoad = load + rigging;
+  const obstructionActive = obsR && obsH;
 
+// Chart radii >14 m are tabulated in 2 m increments.
+// Use ±1 m tolerance to select nearest valid chart radius (no interpolation).
   return charts
-    .filter(r =>
-      r.radius === radius &&          // ✅ EXACT radius only
-      r.capacity >= totalLoad         // ✅ must be capable
-    )
     .map(r => {
+      if (Math.abs(r.radius - radius) > 1) return null;
+      if (r.capacity < totalLoad) return null;
+
       const tipHeight = Math.sqrt(
         Math.max(0, r.boom * r.boom - radius * radius)
       );
 
-      // Obstruction check (still valid)
-      if (obsR && obsH) {
+      if (obstructionActive) {
         const boomHeightAtObs = tipHeight * (obsR / radius);
         const clearance = boomHeightAtObs - obsH;
         if (clearance < margin) return null;
@@ -345,8 +346,7 @@ function computeCandidates({
         capacity: r.capacity,
         config: r.config,
         util: (totalLoad / r.capacity) * 100,
-        tipHeight,
-        radiusMatched: r.radius
+        tipHeight
       };
     })
     .filter(Boolean);
@@ -476,17 +476,8 @@ function calculate() {
   return;
 }
 
-  const best = candidates[0]; // chart-exact: first matching row
-const target80 = null;      // no optimisation in chart-exact mode
-  
-  console.log(
-  "Selected:",
-  best.config,
-  "matched radius:",
-  best.radiusMatched,
-  "capacity:",
-  best.capacity
-);
+  const best = selectBestCandidate(candidates);
+  const target80 = selectClosestTo80(candidates);
   
   /* ================================
    STEP 1: Freeze Basic Mode output
