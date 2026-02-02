@@ -114,6 +114,17 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 </section>
 
 <script>
+let CRANE_META = null;
+
+fetch("cranes/GMK5130-1/meta.json")
+  .then(r => r.json())
+  .then(d => {
+    CRANE_META = d;
+    console.log("Crane metadata loaded", CRANE_META);
+  })
+  .catch(err => {
+    console.error("Failed to load crane metadata", err);
+  });
   // BASIC MODE v1.0
 // Behaviour frozen. Data may expand but logic must not change.
 const SVG_SCALE = 6;
@@ -151,6 +162,13 @@ const apResult = document.getElementById("apResult");
 
 confirmApBtn.addEventListener("click", () => {
   if (!window.selectedApConfiguration) return;
+  
+  if (!CRANE_META) {
+  alert("Crane data still loading. Please wait.");
+  return;
+}
+  
+  apResult.innerHTML = ""; // ✅ reset AP results
 
   // 🔒 Freeze AP configuration
   const confirmedApConfig = {
@@ -176,22 +194,20 @@ confirmApBtn.addEventListener("click", () => {
     </div>
   `;
   
-  /* ================================
-   STEP 5.2 – Ground Bearing Pressure
-   Conservative UK / IE Assumptions
+   /* ================================
+   STEP 5.2 – Ground Bearing (Lifted Load Only)
    ================================ */
-   const step52 = runStep52_GroundBearing();
-   
-   if (step52) {
+const step52 = runStep52_GroundBearing();
+
+if (step52) {
   apResult.innerHTML += `
     <div class="alt">
       <p><b>Ground Bearing (Conservative)</b></p>
       <p><b>Worst outrigger load:</b> ${step52.results.worstOutriggerLoad_kN} kN</p>
       <p><b>Ground bearing:</b> ${step52.results.groundBearing_t_m2} t/m²</p>
       <p style="font-size:0.9em;color:#555;margin-top:8px;">
-        Ground bearing values shown are conservative incremental planning estimates due to the lifted load only.
-Crane self-weight, ballast, and carrier loads are not included.
-Final pressures must be confirmed by the Appointed Person / Temporary Works Engineer.
+        Ground bearing values shown are conservative incremental planning estimates
+        due to the lifted load only. Crane self-weight and ballast are excluded.
       </p>
     </div>
   `;
@@ -200,13 +216,28 @@ Final pressures must be confirmed by the Appointed Person / Temporary Works Engi
 /* ================================
    STEP 5.3 – Estimated Total Ground Bearing
    ================================ */
-const step53 = runStep53_EstimatedTotalGroundBearing({
-  craneSelfWeight_t: 65, // temporary fixed value
-  ballastWeight_t:
-    ballast.value === "40_1t" ? 40.1 :
-    ballast.value === "23_5t" ? 23.5 :
-    ballast.value === "6t"    ? 6 : 0
-});
+let step53 = null;
+
+  const base = CRANE_META.baseMass;
+
+  const BASE_CRANE_MASS_T =
+    base.carrierBare_t +
+    base.fixedSuperstructureBallast_t +
+    base.deckBallast_t;
+
+  const ballastPkg = CRANE_META.ballastPackages[ballast.value];
+
+  if (!ballastPkg) {
+    alert("Invalid ballast configuration selected.");
+    return;
+  }
+
+  step53 = runStep53_EstimatedTotalGroundBearing({
+    craneSelfWeight_t:
+      BASE_CRANE_MASS_T + ballastPkg.addsToCraneMass_t,
+    ballastWeight_t:
+      ballastPkg.installedBallast_t
+  });
 
 if (step53) {
   apResult.innerHTML += `
@@ -223,7 +254,6 @@ if (step53) {
     </div>
   `;
 }
-
 
   // 🔐 Lock AP UI
   document
