@@ -322,64 +322,34 @@ function computeCandidates({
   margin
 }) {
   const totalLoad = load + rigging;
-  const obstructionActive = obsR && obsH;
 
-// Chart radii >14 m are tabulated in 2 m increments.
-// Use ±1 m tolerance to select nearest valid chart radius (no interpolation).
+  return charts
+    .filter(r =>
+      r.radius === radius &&          // ✅ EXACT radius only
+      r.capacity >= totalLoad         // ✅ must be capable
+    )
+    .map(r => {
+      const tipHeight = Math.sqrt(
+        Math.max(0, r.boom * r.boom - radius * radius)
+      );
 
-// 1️⃣ First: filter by radius + capacity only
-const radiusCandidates = charts.filter(r =>
-  Math.abs(r.radius - radius) <= 1 &&
-  r.capacity >= totalLoad
-);
+      // Obstruction check (still valid)
+      if (obsR && obsH) {
+        const boomHeightAtObs = tipHeight * (obsR / radius);
+        const clearance = boomHeightAtObs - obsH;
+        if (clearance < margin) return null;
+      }
 
-// 2️⃣ Group by boom + config
-const grouped = {};
-radiusCandidates.forEach(r => {
-  const key = `${r.boom}__${r.config}`;
-  if (!grouped[key]) grouped[key] = [];
-  grouped[key].push(r);
-});
-
-// 3️⃣ Prefer EXACT radius, otherwise round UP
-const resolvedCharts = Object.values(grouped).map(group => {
-  // 1️⃣ Exact match always wins
-  const exact = group.find(r => r.radius === radius);
-  if (exact) return exact;
-
-  // 2️⃣ Otherwise round UP to next available radius
-  const above = group
-    .filter(r => r.radius > radius)
-    .sort((a, b) => a.radius - b.radius);
-
-  if (above.length) return above[0];
-
-  // 3️⃣ Fallback (should rarely happen): largest available
-  return group.sort((a, b) => a.radius - b.radius)[group.length - 1];
-});
-
-// 4️⃣ Now build candidates (ONE radius per config)
-return resolvedCharts.map(r => {
-  const tipHeight = Math.sqrt(
-    Math.max(0, r.boom * r.boom - radius * radius)
-  );
-
-  if (obsR && obsH) {
-    const boomHeightAtObs = tipHeight * (obsR / radius);
-    const clearance = boomHeightAtObs - obsH;
-    if (clearance < margin) return null;
-  }
-
-  return {
-    boom: r.boom,
-    capacity: r.capacity,
-    config: r.config,
-    util: (totalLoad / r.capacity) * 100,
-    tipHeight,
-    radiusMatched: r.radius // 🔍 optional but useful
-  };
-}).filter(Boolean);
-    
+      return {
+        boom: r.boom,
+        capacity: r.capacity,
+        config: r.config,
+        util: (totalLoad / r.capacity) * 100,
+        tipHeight,
+        radiusMatched: r.radius
+      };
+    })
+    .filter(Boolean);
 }
 
 function selectBestCandidate(candidates) {
@@ -506,8 +476,8 @@ function calculate() {
   return;
 }
 
-  const best = selectBestCandidate(candidates);
-  const target80 = selectClosestTo80(candidates);
+  const best = candidates[0]; // chart-exact: first matching row
+const target80 = null;      // no optimisation in chart-exact mode
   
   console.log(
   "Selected:",
