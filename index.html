@@ -341,12 +341,21 @@ radiusCandidates.forEach(r => {
   grouped[key].push(r);
 });
 
-// 3️⃣ For each boom+config, pick the CLOSEST radius
+// 3️⃣ Prefer EXACT radius, otherwise round UP
 const resolvedCharts = Object.values(grouped).map(group => {
-  return group.sort(
-    (a, b) =>
-      Math.abs(a.radius - radius) - Math.abs(b.radius - radius)
-  )[0];
+  // 1️⃣ Exact match always wins
+  const exact = group.find(r => r.radius === radius);
+  if (exact) return exact;
+
+  // 2️⃣ Otherwise round UP to next available radius
+  const above = group
+    .filter(r => r.radius > radius)
+    .sort((a, b) => a.radius - b.radius);
+
+  if (above.length) return above[0];
+
+  // 3️⃣ Fallback (should rarely happen): largest available
+  return group.sort((a, b) => a.radius - b.radius)[group.length - 1];
 });
 
 // 4️⃣ Now build candidates (ONE radius per config)
