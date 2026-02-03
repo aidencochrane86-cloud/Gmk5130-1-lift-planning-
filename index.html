@@ -135,9 +135,6 @@ fetch("./cranes/GMK5130-1/crane.json")
   .catch(err => {
     console.error("Failed to load crane metadata", err);
   });
-  .catch(err => {
-    console.error("Failed to load crane metadata", err);
-  });
   // BASIC MODE v1.0
 // Behaviour frozen. Data may expand but logic must not change.
 const SVG_SCALE = 6;
@@ -170,7 +167,6 @@ const marginInput = document.getElementById("margin");
 const result = document.getElementById("result");
 const metaBallast = document.getElementById("metaBallast");
 const AP_UTILISATION_LIMIT = 90;
-const confirmApBtn = document.getElementById("confirmApConfig");
 const apResult = document.getElementById("apResult");
 
 confirmApBtn.addEventListener("click", () => {
@@ -307,7 +303,7 @@ function loadData(ballastKey) {
     return;
   }
 
-  fetch(`cranes/${craneId}/${chartFile}`)
+  fetch(`./cranes/${craneId}/${chartFile}`)
     .then(r => r.json())
     .then(d => {
       DATA = d.charts;
