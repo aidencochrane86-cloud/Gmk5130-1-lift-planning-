@@ -115,12 +115,20 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 
 <script>
 let CRANE_META = null;
+let CRANE_META_READY = false;
 
 fetch("cranes/GMK5130-1/meta.json")
   .then(r => r.json())
   .then(d => {
     CRANE_META = d;
+    CRANE_META_READY = true;
+
     console.log("Crane metadata loaded", CRANE_META);
+
+    // ✅ Enable Confirm if AP config already selected
+    if (window.selectedApConfiguration) {
+      confirmApBtn.disabled = false;
+    }
   })
   .catch(err => {
     console.error("Failed to load crane metadata", err);
@@ -617,7 +625,10 @@ card.addEventListener("click", () => {
   card.style.border = "2px solid #0066cc";
 
   window.selectedApConfiguration = c;
-  confirmApBtn.disabled = false;
+  
+  // Only enable Confirm when crane metadata is ready
+confirmApBtn.disabled = !CRANE_META_READY;
+  
   console.log("AP configuration selected:", c);
   
    // ✅ STEP 4 enablement
