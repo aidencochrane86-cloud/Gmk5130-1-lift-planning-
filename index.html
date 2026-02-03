@@ -117,8 +117,9 @@ input[type="number"], select { width:100%; padding:6px; margin-top:4px; }
 let CRANE_META = null;
 let CRANE_META_READY = false;
 
-// ✅ MOVE THIS UP
+// ✅ DOM refs must exist BEFORE async code
 const confirmApBtn = document.getElementById("confirmApConfig");
+const metaBallast = document.getElementById("metaBallast");
 
 fetch("./cranes/GMK5130-1/crane.json")
   .then(r => r.json())
@@ -132,8 +133,6 @@ fetch("./cranes/GMK5130-1/crane.json")
       `<strong>Ballast:</strong> ${Object.keys(d.ballastPackages).join(", ")}<br>` +
       `<strong>Outriggers:</strong> ${d.outriggers || "—"}<br>` +
       `<strong>SLI:</strong> ${d.sli || "—"}`;
-
-    // ✅ Enable Confirm if AP config already selected
 
     if (window.selectedApConfiguration) {
       confirmApBtn.disabled = false;
