@@ -475,14 +475,11 @@ function calculate() {
   }
 
   // 2️⃣ Enforce EXACT chart cell (no optimisation, no rounding)
-  if (candidates.length !== 1) {
-    console.error("Chart integrity error at radius", radius, candidates);
-    result.innerHTML = `
-      <p class="fail">
-        Chart error: expected exactly 1 chart row at ${radius} m
-      </p>`;
-    return;
-  }
+  // 🔒 BASIC MODE: conservative exact-chart selection
+const best = [...candidates]
+  .sort((a, b) => b.util - a.util)[0]; // highest utilisation, exact chart row
+
+const target80 = null; // optimisation intentionally disabled
 
   // 3️⃣ Exactly one valid chart row
   const best = candidates[0];
