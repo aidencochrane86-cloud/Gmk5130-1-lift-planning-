@@ -355,12 +355,6 @@ function computeCandidates({
     .filter(Boolean);
 }
 
-function selectBestCandidate(candidates) {
-  if (!candidates.length) return null;
-
-  // Lowest utilisation (current behaviour)
-  return [...candidates].sort((a, b) => a.util - b.util)[0];
-}
 
 function selectClosestTo80(candidates) {
   if (!candidates.length) return null;
@@ -443,6 +437,7 @@ function renderLift(best, context) {
     <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
   `;
 }
+
 function calculate() {
   const load = +loadInput.value;
   const rigging = riggingInput.value ? +riggingInput.value : 0;
@@ -451,94 +446,97 @@ function calculate() {
 
   if (!load || !radius) return;
 
-  pivot.style.visibility = boomLine.style.visibility =
-  radiusLine.style.visibility = tipHeightLine.style.visibility = "visible";
+  pivot.style.visibility =
+    boomLine.style.visibility =
+    radiusLine.style.visibility =
+    tipHeightLine.style.visibility =
+      "visible";
 
   const obsR = +obsRadiusInput.value;
   const obsH = +obsHeightInput.value;
   const margin = +marginInput.value || 0;
-  const obstructionActive = obsR && obsH;
 
   const candidates = computeCandidates({
-  charts: DATA,
-  load,
-  rigging,
-  radius,
-  obsR,
-  obsH,
-  margin
-});
+    charts: DATA,
+    load,
+    rigging,
+    radius,
+    obsR,
+    obsH,
+    margin
+  });
 
+  // 1️⃣ No possible lift
   if (!candidates.length) {
-  result.innerHTML = `<p class="fail">Lift not possible</p>`;
+    result.innerHTML = `<p class="fail">Lift not possible</p>`;
+    obstructionRect.style.visibility =
+      clearanceLine.style.visibility = "hidden";
+    return;
+  }
 
-  // 🔹 Tiny improvement: hide old obstruction visuals
-  obstructionRect.style.visibility =
-    clearanceLine.style.visibility = "hidden";
+  // 2️⃣ Enforce EXACT chart cell (no optimisation, no rounding)
+  if (candidates.length !== 1) {
+    console.error("Chart integrity error at radius", radius, candidates);
+    result.innerHTML = `
+      <p class="fail">
+        Chart error: expected exactly 1 chart row at ${radius} m
+      </p>`;
+    return;
+  }
 
-  return;
-}
+  // 3️⃣ Exactly one valid chart row
+  const best = candidates[0];
+  const target80 = null; // optimisation intentionally disabled
 
-  const best = selectBestCandidate(candidates);
-  const target80 = selectClosestTo80(candidates);
-  
   /* ================================
-   STEP 1: Freeze Basic Mode output
-   ================================ */
-const basicModeResult = {
-  craneModel: "GMK5130-1",
+     STEP 1: Freeze Basic Mode output
+     ================================ */
+  const basicModeResult = {
+    craneModel: "GMK5130-1",
 
-  ballast: ballast.value,
-  ballastLabel: ballast.selectedOptions[0].text,
+    ballast: ballast.value,
+    ballastLabel: ballast.selectedOptions[0].text,
 
-  load_t: load,
-  rigging_t: rigging,
-  totalLoad_t: totalLoad,
+    load_t: load,
+    rigging_t: rigging,
+    totalLoad_t: totalLoad,
 
-  radius_m: radius,
+    radius_m: radius,
 
-  selectedConfiguration: {
-    config: best.config,
-    boom_m: best.boom,
-    ratedCapacity_t: best.capacity,
-    utilisation_percent: best.util,
-    tipHeight_m: best.tipHeight
-  },
-  
-  recommended: {
-    best: {
+    selectedConfiguration: {
       config: best.config,
       boom_m: best.boom,
       ratedCapacity_t: best.capacity,
-      utilisation_percent: best.util
+      utilisation_percent: best.util,
+      tipHeight_m: best.tipHeight
     },
-    target80: target80 && target80.config !== best.config
-      ? {
-          config: target80.config,
-          boom_m: target80.boom,
-          ratedCapacity_t: target80.capacity,
-          utilisation_percent: target80.util
-        }
-      : null
-  },
 
-  feasibleConfigurations: candidates.map(c => ({
-    config: c.config,
-    boom_m: c.boom,
-    ratedCapacity_t: c.capacity,
-    utilisation_percent: c.util
-  })),
+    recommended: {
+      best: {
+        config: best.config,
+        boom_m: best.boom,
+        ratedCapacity_t: best.capacity,
+        utilisation_percent: best.util
+      },
+      target80: null
+    },
 
-  assumptions: {
-    slew: "360°",
-    clearanceRule: "Step A – vertical only"
-  }
-};
+    feasibleConfigurations: candidates.map(c => ({
+      config: c.config,
+      boom_m: c.boom,
+      ratedCapacity_t: c.capacity,
+      utilisation_percent: c.util
+    })),
 
-   window.basicModeResult = basicModeResult;
-   Object.freeze(window.basicModeResult);
-/* ===== END STEP 1 ===== */
-  
+    assumptions: {
+      slew: "360°",
+      clearanceRule: "Step A – vertical only"
+    }
+  };
+
+  window.basicModeResult = basicModeResult;
+  Object.freeze(window.basicModeResult);
+
   renderLift(best, {
     radius,
     obsR,
@@ -546,21 +544,8 @@ const basicModeResult = {
     margin,
     totalLoad
   });
+}
 
-  if (target80 && target80.config !== best.config) {
-  result.innerHTML += `
-    <hr>
-    <p><b>Alternative (≈80% utilisation)</b></p>
-    <p><b>Configuration:</b> ${target80.config}</p>
-    <p><b>Boom length:</b> ${target80.boom} m</p>
-    <p><b>Utilisation:</b>
-      <span class="${utilClass(target80.util)}">
-        ${target80.util.toFixed(1)}%
-      </span>
-    </p>
-  `;
-}
-}
 [loadInput, riggingInput, radiusInput,
  obsRadiusInput, obsHeightInput, marginInput]
 .forEach(e => e.addEventListener("input", calculate));
