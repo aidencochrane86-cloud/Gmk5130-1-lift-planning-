@@ -128,6 +128,13 @@ fetch("./cranes/GMK5130-1/crane.json")
 
     console.log("Crane metadata loaded", CRANE_META);
 
+    metaBallast.innerHTML =
+      `<strong>Ballast:</strong> ${Object.keys(d.ballastPackages).join(", ")}<br>` +
+      `<strong>Outriggers:</strong> ${d.outriggers || "—"}<br>` +
+      `<strong>SLI:</strong> ${d.sli || "—"}`;
+
+    // ✅ Enable Confirm if AP config already selected
+
     if (window.selectedApConfiguration) {
       confirmApBtn.disabled = false;
     }
