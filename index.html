@@ -322,20 +322,22 @@ function computeCandidates({
   margin
 }) {
   const totalLoad = load + rigging;
-  const obstructionActive = obsR && obsH;
 
-// Chart radii >14 m are tabulated in 2 m increments.
-// Use ±1 m tolerance to select nearest valid chart radius (no interpolation).
-  return charts
+  // 🔒 STEP 1: ONLY exact radius rows are valid
+  const exactRows = charts.filter(r => r.radius === radius);
+
+  if (!exactRows.length) return [];
+
+  // 🔒 STEP 2: capacity check only (no optimisation)
+  return exactRows
+    .filter(r => r.capacity >= totalLoad)
     .map(r => {
-      if (Math.abs(r.radius - radius) > 1) return null;
-      if (r.capacity < totalLoad) return null;
-
       const tipHeight = Math.sqrt(
         Math.max(0, r.boom * r.boom - radius * radius)
       );
 
-      if (obstructionActive) {
+      // Obstruction clearance (still valid)
+      if (obsR && obsH) {
         const boomHeightAtObs = tipHeight * (obsR / radius);
         const clearance = boomHeightAtObs - obsH;
         if (clearance < margin) return null;
@@ -346,7 +348,8 @@ function computeCandidates({
         capacity: r.capacity,
         config: r.config,
         util: (totalLoad / r.capacity) * 100,
-        tipHeight
+        tipHeight,
+        radiusMatched: r.radius // for trace/debug
       };
     })
     .filter(Boolean);
