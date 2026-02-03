@@ -328,7 +328,8 @@ function computeCandidates({
 // Use ±1 m tolerance to select nearest valid chart radius (no interpolation).
   return charts
     .map(r => {
-      if (Math.abs(r.radius - radius) > 1) return null;
+      if (r.radius < radius) return null;
+      if (r.radius - radius > 1) return null;
       if (r.capacity < totalLoad) return null;
 
       const tipHeight = Math.sqrt(
