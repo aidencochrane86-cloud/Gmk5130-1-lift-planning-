@@ -120,7 +120,7 @@ let CRANE_META_READY = false;
 // ✅ MOVE THIS UP
 const confirmApBtn = document.getElementById("confirmApConfig");
 
-fetch("cranes/GMK5130-1/meta.json")
+fetch("cranes/GMK5130-1/crane.json")
   .then(r => r.json())
   .then(d => {
     CRANE_META = d;
