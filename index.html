@@ -326,10 +326,20 @@ function computeCandidates({
 
 // Chart radii >14 m are tabulated in 2 m increments.
 // Use ±1 m tolerance to select nearest valid chart radius (no interpolation).
-  return charts
-    .map(r => {
-      if (Math.abs(r.radius - radius) > 1) return null;
-      if (r.capacity < totalLoad) return null;
+  // 1️⃣ Exact radius rows first
+let radiusRows = charts.filter(r => r.radius === radius);
+
+// 2️⃣ If none exist, round UP to next available chart radius
+if (!radiusRows.length) {
+  const availableRadii = [...new Set(charts.map(r => r.radius))]
+    .sort((a, b) => a - b);
+
+  const roundedUpRadius = availableRadii.find(r => r > radius);
+
+  if (roundedUpRadius === undefined) return [];
+
+  radiusRows = charts.filter(r => r.radius === roundedUpRadius);
+}
 
       const tipHeight = Math.sqrt(
         Math.max(0, r.boom * r.boom - radius * radius)
