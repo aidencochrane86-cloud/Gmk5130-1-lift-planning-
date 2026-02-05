@@ -194,20 +194,25 @@ confirmApBtn.addEventListener("click", () => {
   Object.freeze(window.confirmedApConfiguration);
   
     // 📋 Show AP confirmation result
-  apResult.innerHTML += `
-    <div class="alt">
-      <p><b>AP Configuration Confirmed</b></p>
-      <p><b>Configuration:</b> ${confirmedApConfig.config}</p>
-      <p><b>Boom:</b> ${confirmedApConfig.boom_m} m</p>
-      <p><b>Rated capacity:</b> ${confirmedApConfig.ratedCapacity_t} t</p>
-      <p><b>Utilisation:</b>
-        <span class="${utilClass(confirmedApConfig.utilisation_percent)}">
-          ${confirmedApConfig.utilisation_percent.toFixed(1)}%
-        </span>
-      </p>
-    </div>
-  `;
-  
+apResult.innerHTML += `
+  <div class="alt">
+    <p><b>AP Configuration Confirmed</b></p>
+    <p><b>Configuration:</b> ${confirmedApConfig.config}</p>
+    <p><b>Boom:</b> ${confirmedApConfig.boom_m} m</p>
+    <p><b>Rated capacity:</b> ${confirmedApConfig.ratedCapacity_t} t</p>
+    <p><b>Utilisation:</b>
+      <span class="${utilClass(confirmedApConfig.utilisation_percent)}">
+        ${confirmedApConfig.utilisation_percent.toFixed(1)}%
+      </span>
+    </p>
+
+    ${window.radiusExplanation
+      ? `<p style="font-size:0.9em;color:#555;margin-top:8px;">
+           ${window.radiusExplanation}
+         </p>`
+      : ``}
+  </div>
+`;
    /* ================================
    STEP 5.2 – Ground Bearing (Lifted Load Only)
    ================================ */
@@ -356,6 +361,7 @@ function computeCandidates({
       }
 
       return {
+        radius: r.radius,
         boom: r.boom,
         capacity: r.capacity,
         config: r.config,
@@ -390,6 +396,18 @@ function renderLift(best, context) {
     margin,
     totalLoad
   } = context;
+  
+  const steppedUp = best.radius > radius;
+
+const radiusNote = steppedUp
+  ? ` (next published radius)`
+  : ``;
+
+const radiusExplanation =
+  `Using ${best.radius} m chart radius. Rated capacity at ${best.radius} m is ${best.capacity} t${radiusNote}.`;
+
+// make available for AP confirmation
+window.radiusExplanation = radiusExplanation;
 
   // --- Boom geometry ---
   const boomX = pivotX + radius * SVG_SCALE;
@@ -441,7 +459,7 @@ function renderLift(best, context) {
   }
 
   // --- Result panel ---
-  result.innerHTML = `
+    result.innerHTML = `
     <p><b>Total lifted load:</b> ${totalLoad.toFixed(2)} t</p>
     <p><b>Configuration:</b> ${best.config}</p>
     <p><b>Boom length:</b> ${best.boom} m</p>
@@ -452,6 +470,11 @@ function renderLift(best, context) {
       </span>
     </p>
     <p><b>Tip height:</b> ${best.tipHeight.toFixed(2)} m</p>
+
+    <hr>
+    <p style="font-size:0.9em;color:#555;">
+      ${radiusExplanation}
+    </p>
   `;
 }
 function calculate() {
